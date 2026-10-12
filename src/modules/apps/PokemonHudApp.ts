@@ -99,7 +99,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     foundry.applications.api.HandlebarsApplicationMixin.HandlebarsTemplatePart
   > = {
     bar: {
-      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.7.hbs`,
+      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.8.hbs`,
       id: `${MODULE_ID}-bar`,
       root: true
     }
@@ -188,7 +188,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     const raw = Number(input.value);
     const value = Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
     input.value = String(value);
-    void setPokemonXp(actor, value).then(() => this.render({ force: true }));
+    void this.#mutateAndRender(setPokemonXp(actor, value));
   };
 
   #onSubmit = (event: Event): void => {
@@ -735,8 +735,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     if (power.uuid) await this.#activateByUuid(power.uuid, power.name);
     else await this.#chatItemFallback(actor, power.name);
     await this.#postPowerToChat(power, actor);
-    await updatePower(actor, index, { pp: Math.max(0, power.pp - 1) });
-    await this.render({ force: true });
+    await this.#mutateAndRender(updatePower(actor, index, { pp: Math.max(0, power.pp - 1) }));
   }
 
   async #postPowerToChat(power: PowerData, actor: Actor): Promise<void> {
@@ -767,8 +766,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     }
     const doc = await this.#activateByUuid(slot.uuid, slot.name);
     if (key === "equipado" && doc) {
-      await this.#consumeEquipado(doc);
-      await this.render({ force: true });
+      await this.#mutateAndRender(this.#consumeEquipado(doc));
     }
   }
 
@@ -943,6 +941,20 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     }
   }
 
+  /** Mutate a flag that changes the bar structurally, then do a single full
+      render while suppressing the updateActor render it would otherwise trigger. */
+  async #mutateAndRender(mutator: Promise<unknown>): Promise<void> {
+    beginAutoRenderSuppression();
+    try {
+      await mutator;
+      await this.render({ force: true });
+    } catch (err) {
+      logger.warn(`HUD mutate+render: ${String(err)}`);
+    } finally {
+      endAutoRenderSuppression();
+    }
+  }
+
   #nextPartyIndex(): number {
     if (!this.#actor) return 0;
     const { party } = getTrainerFlags(this.#actor);
@@ -965,8 +977,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     if (!actor || this.#mode !== "pokemon" || !game.user?.isGM) return;
     const flags = getPokemonNpcFlags(actor);
     if (!canLevelUp(flags.xp ?? 0, readPokemonLevel(actor.system))) return;
-    await levelUpPokemon(actor);
-    await this.render({ force: true });
+    await this.#mutateAndRender(levelUpPokemon(actor));
   }
 
   #onToggleStats(): void {
@@ -1054,7 +1065,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
         return;
       }
       event.preventDefault();
-      void removePower(actor, index).then(() => this.render({ force: true }));
+      void this.#mutateAndRender(removePower(actor, index));
       return;
     }
 
@@ -1080,7 +1091,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       const key = pokemonSlot.dataset.pokemonSlot as "habilidad" | "equipado";
       if (key !== "habilidad" && key !== "equipado") return;
       event.preventDefault();
-      void setPokemonSlot(actor, key, { name: "" }).then(() => this.render({ force: true }));
+      void this.#mutateAndRender(setPokemonSlot(actor, key, { name: "" }));
       return;
     }
 
@@ -1192,8 +1203,9 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
         .replace(/\s+/g, " ")
         .trim();
       if (!name) return;
-      await setPokemonSlot(this.#actor, key, { name, img, uuid, description });
-      await this.render({ force: true });
+      await this.#mutateAndRender(
+        setPokemonSlot(this.#actor, key, { name, img, uuid, description })
+      );
       return;
     }
 
@@ -1245,12 +1257,13 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       const usesMax = Number(usesRaw?.max ?? NaN);
       const pp = Number.isFinite(usesVal) ? Math.max(0, Math.floor(usesVal)) : 1;
       const maxPp = Number.isFinite(usesMax) ? Math.max(pp, Math.floor(usesMax)) : pp;
-      await setPowerSlot(
-        this.#actor,
-        index,
-        normalizePower({ name, img, description, uuid, type: "normal", pp, maxPp, damage: "" })
+      await this.#mutateAndRender(
+        setPowerSlot(
+          this.#actor,
+          index,
+          normalizePower({ name, img, description, uuid, type: "normal", pp, maxPp, damage: "" })
+        )
       );
-      await this.render({ force: true });
       return;
     }
 
@@ -1463,7 +1476,12 @@ export async function refreshPartyForActor(actor: Actor): Promise<void> {
   await app.refreshPartyIfMember(baseId);
 }
 
-export async function showHud(actor: Actor): Promise<void> {
+let scheduledFlush: number | null = null;
+let scheduledActor: Actor | null = null;
+let scheduledHide = false;
+let scheduledRefresh = false;
+
+async function activateHud(actor: Actor): Promise<void> {
   if (isMobileMode()) return;
   if (!activeInstance) {
     activeInstance = new PokemonHudApp();
@@ -1471,15 +1489,72 @@ export async function showHud(actor: Actor): Promise<void> {
   await activeInstance.setActor(actor);
 }
 
-export async function hideHud(): Promise<void> {
-  if (activeInstance) {
-    const app = activeInstance;
-    activeInstance = null;
-    await app.close();
+async function deactivateHud(): Promise<void> {
+  if (!activeInstance) return;
+  const app = activeInstance;
+  activeInstance = null;
+  await app.close();
+}
+
+function flushHudSchedule(): void {
+  scheduledFlush = null;
+  const actor = scheduledActor;
+  const hide = scheduledHide;
+  const refresh = scheduledRefresh;
+  scheduledActor = null;
+  scheduledHide = false;
+  scheduledRefresh = false;
+  if (actor) {
+    void activateHud(actor);
+    return;
   }
+  if (hide) {
+    void deactivateHud();
+    return;
+  }
+  if (refresh) void activeInstance?.render({ force: true });
+}
+
+function ensureHudFlush(): void {
+  if (scheduledFlush !== null) return;
+  scheduledFlush = requestAnimationFrame(flushHudSchedule);
+}
+
+function cancelHudFlush(): void {
+  if (scheduledFlush !== null) {
+    cancelAnimationFrame(scheduledFlush);
+    scheduledFlush = null;
+  }
+  scheduledActor = null;
+  scheduledHide = false;
+  scheduledRefresh = false;
+}
+
+/** Coalesce control/update bursts into a single render per frame so the bar no
+    longer flashes several times while switching tokens or applying flag changes. */
+export function showHud(actor: Actor): void {
+  scheduledActor = actor;
+  scheduledHide = false;
+  scheduledRefresh = false;
+  ensureHudFlush();
+}
+
+export function hideHud(): void {
+  if (!scheduledActor) {
+    scheduledHide = true;
+    scheduledRefresh = false;
+  }
+  ensureHudFlush();
+}
+
+export function refreshHud(): void {
+  if (scheduledActor || scheduledHide) return;
+  scheduledRefresh = true;
+  ensureHudFlush();
 }
 
 export async function toggleHud(actor: Actor): Promise<void> {
-  if (activeInstance && activeInstance.currentActor?.id === actor.id) return hideHud();
-  return showHud(actor);
+  cancelHudFlush();
+  if (activeInstance && activeInstance.currentActor?.id === actor.id) return deactivateHud();
+  return activateHud(actor);
 }

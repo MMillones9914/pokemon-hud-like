@@ -21,8 +21,7 @@ import { clampedPct, hpColor, typeColor } from "./stats";
 import { MAX_LEVEL, canLevelUp, xpMaxForLevel, xpNextMax } from "./leveling";
 import { getPowerSlots } from "./powers";
 import { readStatBreakdown } from "./stat-breakdown";
-
-const SCOPE = "pokemon-hud-like";
+import { getModuleFlag, setModuleFlag } from "./flags";
 
 export const INV_COLS = 8;
 export const INV_ROWS_DEFAULT = 2;
@@ -30,15 +29,11 @@ export const INV_ROWS_MIN = 2;
 export const INV_ROWS_MAX = 12;
 
 function getFlag(actor: Actor, key: string): unknown {
-  return (actor as unknown as { getFlag(scope: string, key: string): unknown }).getFlag(SCOPE, key);
+  return getModuleFlag(actor, key);
 }
 
 function setFlag(actor: Actor, key: string, value: unknown): Promise<unknown> {
-  return (
-    actor as unknown as {
-      setFlag(scope: string, key: string, value: unknown): Promise<unknown>;
-    }
-  ).setFlag(SCOPE, key, value);
+  return setModuleFlag(actor, key, value);
 }
 
 export function detectHudMode(actor: Actor): HudMode {

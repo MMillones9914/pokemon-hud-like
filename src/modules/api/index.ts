@@ -64,7 +64,7 @@ export interface PokemonHudApi {
 }
 
 const api: PokemonHudApi = {
-  version: "0.1.7",
+  version: "0.1.8",
   getPowers,
   addPower,
   updatePower,

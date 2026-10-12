@@ -1,6 +1,6 @@
 import type { PowerData } from "../types";
+import { getModuleFlag, setModuleFlag } from "./flags";
 
-const SCOPE = "pokemon-hud-like";
 const POWERS_FLAG = "powers";
 
 export const DEFAULT_TYPE = "normal";
@@ -61,15 +61,11 @@ export function clampPpPair(pp: number, maxPp: number): { pp: number; maxPp: num
 }
 
 function getActorFlag(actor: Actor, key: string): unknown {
-  return (actor as unknown as { getFlag(scope: string, key: string): unknown }).getFlag(SCOPE, key);
+  return getModuleFlag(actor, key);
 }
 
 function setActorFlag(actor: Actor, key: string, value: unknown): Promise<unknown> {
-  return (
-    actor as unknown as {
-      setFlag(scope: string, key: string, value: unknown): Promise<unknown>;
-    }
-  ).setFlag(SCOPE, key, value);
+  return setModuleFlag(actor, key, value);
 }
 
 export function getPowers(actor: Actor): PowerData[] {

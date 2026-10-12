@@ -9,6 +9,7 @@ import { initHudSocket } from "./modules/net/socket";
 import {
   hideHud,
   isAutoRenderSuppressed,
+  refreshHud,
   refreshPartyForActor,
   showHud,
   visibleActor,
@@ -38,15 +39,21 @@ Hooks.on("controlToken", (token: Token, controlled: boolean) => {
   if (isMobileMode()) return;
   const { autoShow } = getSettings();
   if (!autoShow) return;
-  if (controlled && token.actor) void showHud(token.actor);
-  else if (!controlled && visibleActor()?.id === token.id) void hideHud();
+  if (controlled && token.actor) {
+    void showHud(token.actor);
+    return;
+  }
+  if (!controlled) {
+    const remaining = ((canvas?.tokens?.controlled ?? []) as Token[]).length;
+    if (remaining === 0) void hideHud();
+  }
 });
 
 Hooks.on("updateActor", (actor: Actor, _changes: unknown, _options: unknown, userId: string) => {
   const visible = visibleActor();
   if (!visible) return;
   if (visible.id === actor.id) {
-    if (userId === game.user?.id && !isAutoRenderSuppressed()) void showHud(actor);
+    if (userId === game.user?.id && !isAutoRenderSuppressed()) void refreshHud();
     return;
   }
 
