@@ -1669,6 +1669,13 @@ body.swipe-vtt:not(.swipe-vtt-foundry-ui) [class*="pokemon-hud-like"][class*="ph
   line-height: 1.4;
   font-weight: 400;
 }
+.ph-tooltip-hint {
+  font-size: 10px;
+  font-style: italic;
+  color: var(--ph-text-muted);
+  border-top: 1px solid var(--ph-border);
+  padding-top: 4px;
+}
 
 @keyframes pulse-hp {
   0%,

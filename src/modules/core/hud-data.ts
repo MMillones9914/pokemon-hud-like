@@ -8,6 +8,7 @@ import type {
   PartySlot,
   TraitSlot,
   TraitSlotView,
+  PowerData,
   TrainerHudContext,
   PokemonHudContext,
   HudBarContext,
@@ -463,7 +464,8 @@ export function buildPokemonContext(actor: Actor): PokemonHudContext {
       ? {
           ...p,
           typeColor: typeColor(p.type),
-          depleted: p.pp <= 0
+          depleted: p.pp <= 0,
+          tooltipHtml: buildPowerTooltip(p)
         }
       : null
   }));
@@ -632,6 +634,35 @@ function buildTraitTooltip(slot: TraitSlot): string {
     `<div class='ph-tooltip-head'>${img}<div class='ph-tooltip-meta'>` +
     `<div class='ph-tooltip-name'>${name}</div>` +
     `</div></div>${desc}</div>`
+  );
+}
+
+function buildPowerTooltip(power: PowerData): string {
+  const img = power.img
+    ? `<img class='ph-tooltip-img' src='${escapeHtml(power.img)}' alt='' />`
+    : "";
+  const name = escapeHtml(power.name || "—");
+  const metaParts = [power.type, `PP ${power.pp}/${power.maxPp}`, power.damage]
+    .map((part) => String(part ?? "").trim())
+    .filter((part) => part.length > 0);
+  const meta = metaParts.length
+    ? `<div class='ph-tooltip-type'>${metaParts.map((part) => escapeHtml(part)).join(" · ")}</div>`
+    : "";
+  const desc = power.description
+    ? `<div class='ph-tooltip-desc'>${escapeHtml(power.description)}</div>`
+    : "";
+  let hint = "";
+  try {
+    hint = game.i18n.localize("pokemon-hud-like.hud.usePower");
+  } catch {
+    hint = "";
+  }
+  const hintLine = hint ? `<div class='ph-tooltip-hint'>${escapeHtml(hint)}</div>` : "";
+  return (
+    `<div class='ph-tooltip'>` +
+    `<div class='ph-tooltip-head'>${img}<div class='ph-tooltip-meta'>` +
+    `<div class='ph-tooltip-name'>${name}</div>${meta}` +
+    `</div></div>${desc}${hintLine}</div>`
   );
 }
 

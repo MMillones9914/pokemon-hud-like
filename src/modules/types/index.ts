@@ -101,6 +101,8 @@ export interface PowerView extends PowerData {
   typeColor: string;
 
   depleted?: boolean;
+
+  tooltipHtml: string;
 }
 
 export interface TraitSlot {

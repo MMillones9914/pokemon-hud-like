@@ -99,7 +99,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     foundry.applications.api.HandlebarsApplicationMixin.HandlebarsTemplatePart
   > = {
     bar: {
-      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.6.hbs`,
+      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.7.hbs`,
       id: `${MODULE_ID}-bar`,
       root: true
     }
