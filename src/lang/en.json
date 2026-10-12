@@ -20,6 +20,7 @@
       "filterObjects": "Objects",
       "filterKey": "Key Items",
       "filterTms": "TMs",
+      "filterFeatures": "Features",
       "party": "Party",
       "badges": "Badges",
       "habilidad": "Ability",
@@ -35,6 +36,7 @@
       "throwPokeball": "Throw Pokéball",
       "noPokeballSelected": "Select a Pokéball in the inventory first.",
       "noCaptureTarget": "Target a Pokémon on the canvas first.",
+      "featureHint": "Drag a feature here to add · Right-click to remove",
       "stats": {
         "title": "Stats",
         "rollHint": "Click: ability check · Right-click: saving throw",

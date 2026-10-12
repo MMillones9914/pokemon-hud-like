@@ -2,7 +2,7 @@
   "id": "pokemon-hud-like",
   "title": "Pokémon HUD-like",
   "description": "<p>Pokémon HUD-like: superposición de estilo Pokémon con barras de HP, poderes/movimientos e información del actor para Foundry VTT v14.</p>",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "url": "https://github.com/MMillones9914/pokemon-hud-like",
   "manifest": "https://github.com/MMillones9914/pokemon-hud-like/releases/latest/download/module.json",
   "download": "https://github.com/MMillones9914/pokemon-hud-like/releases/latest/download/module.zip",
@@ -16,10 +16,10 @@
     "verified": "14"
   },
   "esmodules": [
-    "module/pokemon-hud-like-0.1.8.mjs"
+    "module/pokemon-hud-like-0.1.9.mjs"
   ],
   "styles": [
-    "module/pokemon-hud-like-0.1.8.css"
+    "module/pokemon-hud-like-0.1.9.css"
   ],
   "languages": [
     {

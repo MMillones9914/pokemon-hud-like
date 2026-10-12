@@ -11,6 +11,7 @@ import { addPower, getPowers, removePower, updatePower } from "../core/powers";
 import {
   addActorItemFromSource,
   consumeActorItem,
+  deleteActorItem,
   detectHudMode,
   getPokemonNpcFlags,
   getTrainerFlags,
@@ -47,6 +48,7 @@ export interface PokemonHudApi {
   setSpecializations: (actor: Actor, specs: TraitSlot[]) => Promise<void>;
   listInventory: (actor: Actor) => InventoryItemView[];
   consumeInventoryItem: (actor: Actor, itemId: string) => Promise<void>;
+  deleteInventoryItem: (actor: Actor, itemId: string) => Promise<void>;
   addItemFromSource: (actor: Actor, source: Record<string, unknown>) => Promise<void>;
   moveInventoryItem: (actor: Actor, fromId: string, toId: string | null) => Promise<void>;
   setParty: (actor: Actor, partyIds: string[]) => Promise<void>;
@@ -64,7 +66,7 @@ export interface PokemonHudApi {
 }
 
 const api: PokemonHudApi = {
-  version: "0.1.8",
+  version: "0.1.9",
   getPowers,
   addPower,
   updatePower,
@@ -77,6 +79,7 @@ const api: PokemonHudApi = {
   setSpecializations,
   listInventory: listActorInventory,
   consumeInventoryItem: consumeActorItem,
+  deleteInventoryItem: deleteActorItem,
   addItemFromSource: addActorItemFromSource,
   moveInventoryItem: moveActorItem,
   setParty,

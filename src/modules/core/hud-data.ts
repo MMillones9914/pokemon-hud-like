@@ -130,21 +130,30 @@ function actorItems(actor: Actor): Item[] {
 
 const OBJECT_ITEM_TYPES = new Set(["equipment", "consumable", "tool", "loot", "backpack"]);
 
+/** dnd5e class / species / origin features are embedded `feat` items. */
+const FEAT_ITEM_TYPE = "feat";
+
 function isObjectItemType(type: string): boolean {
   return OBJECT_ITEM_TYPES.has(type);
 }
 
+function isInventoryItemType(type: string): boolean {
+  return isObjectItemType(type) || type === FEAT_ITEM_TYPE;
+}
+
 export function listActorInventory(actor: Actor): InventoryItemView[] {
   return actorItems(actor)
-    .filter((item) => isObjectItemType(String(item.type ?? "")))
+    .filter((item) => isInventoryItemType(String(item.type ?? "")))
     .map((item): InventoryItemView => {
       const sys = (item.system ?? {}) as Record<string, unknown>;
       const name = String(item.name ?? "");
+      const itemType = String(item.type ?? "");
+      const isFeat = itemType === FEAT_ITEM_TYPE;
       const data: InventoryItem = {
         name,
         img: typeof item.img === "string" ? item.img : undefined,
-        category: categorizeItemName(name, itemSubtypeValue(sys)),
-        qty: itemQuantity(sys),
+        category: categorizeInventoryItem(itemType, name, itemSubtypeValue(sys)),
+        qty: isFeat ? undefined : itemQuantity(sys),
         uuid: typeof item.uuid === "string" ? item.uuid : undefined,
         description: itemDescription(sys),
         range: itemRange(sys)
@@ -155,6 +164,16 @@ export function listActorInventory(actor: Actor): InventoryItemView[] {
         tooltipHtml: buildInventoryTooltip(data)
       };
     });
+}
+
+export async function deleteActorItem(actor: Actor, itemId: string): Promise<void> {
+  const item = (
+    actor as unknown as {
+      items?: { get: (id: string) => { delete?: () => Promise<unknown> } | undefined };
+    }
+  ).items?.get(itemId);
+  if (!item?.delete) return;
+  await item.delete();
 }
 
 export async function consumeActorItem(actor: Actor, itemId: string): Promise<void> {
@@ -173,15 +192,18 @@ export async function addActorItemFromSource(
   source: Record<string, unknown>
 ): Promise<void> {
   const name = String(source.name ?? "");
-  const existing = actorItems(actor).find((i) => i.name === name);
-  if (existing) {
-    const sys = (existing.system ?? {}) as Record<string, unknown>;
-    const qty = Number(sys.quantity ?? 1);
-    await existing.update({ "system.quantity": qty + 1 } as never);
-    return;
+  const isFeat = String(source.type ?? "") === FEAT_ITEM_TYPE;
+  if (!isFeat) {
+    const existing = actorItems(actor).find((i) => i.name === name);
+    if (existing) {
+      const sys = (existing.system ?? {}) as Record<string, unknown>;
+      const qty = Number(sys.quantity ?? 1);
+      await existing.update({ "system.quantity": qty + 1 } as never);
+      return;
+    }
+    const sys = (source.system ?? {}) as Record<string, unknown>;
+    if (sys.quantity === undefined) sys.quantity = 1;
   }
-  const sys = (source.system ?? {}) as Record<string, unknown>;
-  if (sys.quantity === undefined) sys.quantity = 1;
   await (
     actor as unknown as { createEmbeddedDocuments: (t: string, d: unknown[]) => Promise<unknown> }
   ).createEmbeddedDocuments("Item", [source]);
@@ -506,7 +528,15 @@ export function buildHudBarContext(
 }
 
 function validateCategory(raw: unknown): InventoryCategory {
-  if (raw === "pokeball" || raw === "object" || raw === "key" || raw === "tm") return raw;
+  if (
+    raw === "pokeball" ||
+    raw === "object" ||
+    raw === "key" ||
+    raw === "tm" ||
+    raw === "feature"
+  ) {
+    return raw;
+  }
   return "object";
 }
 
@@ -545,6 +575,15 @@ export function categorizeItemName(name: string, subtype?: string): InventoryCat
   if (haystack.includes("key:") || haystack.includes("clave:")) return "key";
   if (haystack.includes("tm:")) return "tm";
   return "object";
+}
+
+export function categorizeInventoryItem(
+  type: string,
+  name: string,
+  subtype?: string
+): InventoryCategory {
+  if (String(type ?? "").toLowerCase() === FEAT_ITEM_TYPE) return "feature";
+  return categorizeItemName(name, subtype);
 }
 
 function itemSubtypeValue(sys: Record<string, unknown>): string {
@@ -592,12 +631,21 @@ function categoryLabel(category: InventoryCategory): string {
     pokeball: "pokemon-hud-like.hud.filterPokeball",
     object: "pokemon-hud-like.hud.filterObjects",
     key: "pokemon-hud-like.hud.filterKey",
-    tm: "pokemon-hud-like.hud.filterTms"
+    tm: "pokemon-hud-like.hud.filterTms",
+    feature: "pokemon-hud-like.hud.filterFeatures"
   };
   try {
     return game.i18n.localize(labels[category]);
   } catch {
     return category;
+  }
+}
+
+function localizeOr(key: string, fallback = ""): string {
+  try {
+    return game.i18n.localize(key) || fallback;
+  } catch {
+    return fallback;
   }
 }
 
@@ -609,12 +657,15 @@ function buildInventoryTooltip(item: InventoryItem): string {
   const desc = item.description
     ? `<div class='ph-tooltip-desc'>${escapeHtml(item.description)}</div>`
     : "";
+  const hint =
+    item.category === "feature" ? localizeOr("pokemon-hud-like.hud.featureHint", "") : "";
+  const hintHtml = hint ? `<div class='ph-tooltip-hint'>${escapeHtml(hint)}</div>` : "";
   return (
     `<div class='ph-tooltip'>` +
     `<div class='ph-tooltip-head'>${img}<div class='ph-tooltip-meta'>` +
     `<div class='ph-tooltip-name'>${name}</div>` +
     `<div class='ph-tooltip-type'>${type}</div>` +
-    `</div></div>${range}${desc}</div>`
+    `</div></div>${range}${desc}${hintHtml}</div>`
   );
 }
 

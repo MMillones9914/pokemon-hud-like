@@ -53,7 +53,7 @@ export interface InventoryItemView extends InventoryItem {
   tooltipHtml: string;
 }
 
-export type InventoryCategory = "pokeball" | "object" | "key" | "tm";
+export type InventoryCategory = "pokeball" | "object" | "key" | "tm" | "feature";
 
 export interface Badge {
   name: string;

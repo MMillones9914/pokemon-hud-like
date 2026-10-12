@@ -20,6 +20,7 @@
       "filterObjects": "Objetos",
       "filterKey": "Objetos Clave",
       "filterTms": "MTs",
+      "filterFeatures": "Features",
       "party": "Pokémon",
       "badges": "Medallas",
       "habilidad": "Habilidad",
@@ -35,6 +36,7 @@
       "throwPokeball": "Lanzar Pokéball",
       "noPokeballSelected": "Selecciona primero una Pokéball en el inventario.",
       "noCaptureTarget": "Marca primero un Pokémon como objetivo en el lienzo.",
+      "featureHint": "Arrastra una feature para añadirla · Clic derecho para eliminar",
       "stats": {
         "title": "Estadísticas",
         "rollHint": "Clic: prueba de característica · Clic derecho: salvación",

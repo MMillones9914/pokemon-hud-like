@@ -5,6 +5,7 @@ import {
   addBadge,
   buildHudBarContext,
   consumeActorItem,
+  deleteActorItem,
   detectHudMode,
   getPokemonNpcFlags,
   getTrainerFlags,
@@ -99,7 +100,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     foundry.applications.api.HandlebarsApplicationMixin.HandlebarsTemplatePart
   > = {
     bar: {
-      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.8.hbs`,
+      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.9.hbs`,
       id: `${MODULE_ID}-bar`,
       root: true
     }
@@ -851,7 +852,11 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
   #onSetInvFilter(button: HTMLButtonElement): void {
     const value = button.dataset.filter;
     this.#invFilter =
-      value === "pokeball" || value === "object" || value === "key" || value === "tm"
+      value === "pokeball" ||
+      value === "object" ||
+      value === "key" ||
+      value === "tm" ||
+      value === "feature"
         ? value
         : "object";
     void this.#patchBar([".ph-inv-filters", ".ph-inv-grid"]);
@@ -1079,6 +1084,17 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       if (index < 0 || index >= party.length || !party[index]) return;
       event.preventDefault();
       void this.#mutateAndPatch(removePartySlot(actor, index), [".ph-party-grid"]);
+      return;
+    }
+
+    const invSlot = (event.target as HTMLElement | null)?.closest<HTMLElement>(
+      ".ph-inv-slot[data-item-id]"
+    );
+    if (invSlot && this.#mode === "trainer" && this.#invFilter === "feature") {
+      const itemId = invSlot.dataset.itemId;
+      if (!itemId) return;
+      event.preventDefault();
+      void this.#mutateAndPatch(deleteActorItem(actor, itemId), [".ph-inv-grid"]);
       return;
     }
 
