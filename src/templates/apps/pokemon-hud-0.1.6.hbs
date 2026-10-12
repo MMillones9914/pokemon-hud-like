@@ -1,0 +1,356 @@
+<section class="ph-bar{{#if showBadges}} ph-show-badges{{/if}}" data-mode="{{mode}}">
+  {{#if isTrainer}}
+
+  {{#with trainer}}
+  <div class="ph-bar-inner bar-inner--trainer">
+
+    <div class="ph-portrait ph-portrait--trainer" data-action="open-sheet"
+         data-tooltip="pokemon-hud-like.hud.openSheet">
+      <div class="ph-portrait-top">
+
+        <button class="ph-min-btn" type="button" data-action="toggle-minimize"
+                data-tooltip="{{localize 'pokemon-hud-like.hud.minimizeHud'}}">
+          <i class="fa-solid fa-chevron-down ph-min-icon--min"></i>
+          <i class="fa-solid fa-chevron-up ph-min-icon--max"></i>
+        </button>
+        <div class="ph-portrait-img-wrap">
+          <img class="ph-portrait-img" src="{{this.img}}" alt="{{this.actorName}}" />
+          <button class="ph-dice-btn" type="button" data-action="toggle-stats"
+                  data-tooltip="pokemon-hud-like.hud.stats.title">
+            <i class="fa-solid fa-dice-d20"></i>
+          </button>
+          <div class="ph-portrait-info ph-portrait-info--trainer">
+            <span class="ph-name">{{this.actorName}}</span>
+            <span class="ph-level">Lv.{{this.level}}</span>
+            <span class="ph-hp-numbers">{{this.hp.current}} / {{this.hp.max}}</span>
+          </div>
+          <div class="ph-stats-panel">
+            <label class="ph-section-label">{{localize "pokemon-hud-like.hud.stats.title"}}</label>
+            <div class="ph-stats-abilities">
+              {{#each this.stats.abilities}}
+              <div class="ph-stat-ability" data-action="roll-ability" data-ability="{{this.key}}"
+                   data-tooltip="{{localize 'pokemon-hud-like.hud.stats.rollHint'}}">
+                <span class="ph-stat-ab-label">{{localize this.labelKey}}</span>
+                <span class="ph-stat-ab-value">{{this.value}}</span>
+                <span class="ph-stat-ab-mod">{{this.modText}}</span>
+              </div>
+              {{/each}}
+            </div>
+            <div class="ph-stats-skills">
+              {{#each this.stats.skills}}
+              <div class="ph-stat-skill" data-action="roll-skill" data-skill="{{this.key}}"
+                   data-tooltip="{{localize 'pokemon-hud-like.hud.stats.rollSkillHint'}}">
+                <span class="ph-stat-sk-label">{{localize this.labelKey}}</span>
+                <span class="ph-stat-sk-total">{{this.totalText}}</span>
+              </div>
+              {{/each}}
+            </div>
+          </div>
+        </div>
+        <div class="ph-hp-bar-vertical ph-hp-bar-vertical--trainer">
+          <div class="ph-hp-fill-vertical ph-fill--{{this.hp.color}}"
+               style="--ph-pct:{{this.hp.pct}}"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ph-menu">
+
+    <div class="ph-traits-overlay">
+      <div class="ph-traits-row ph-traits-row--specs">
+        {{#each this.specializations}}
+        <div class="ph-traits-slot ph-traits-icon-slot{{#unless this.img}} ph-traits-icon-slot--empty{{/unless}}"
+             data-trait="specializations" data-slot="{{@index}}" data-action="use-trait"
+             data-tooltip-html="{{{this.tooltipHtml}}}">
+          {{#if this.img}}<img src="{{this.img}}" alt="{{this.name}}" />{{/if}}
+        </div>
+        {{/each}}
+      </div>
+
+      <button class="ph-badges-trigger" type="button" data-action="toggle-badges"
+              data-tooltip="pokemon-hud-like.hud.badges">
+        <i class="fa-solid fa-medal"></i>
+
+        <div class="ph-badges-panel" data-action="toggle-badges">
+          <label class="ph-section-label">{{localize "pokemon-hud-like.hud.badges"}}</label>
+          <div class="ph-badge-grid ph-badge-grid--pop">
+            {{#each this.badges}}
+            <div class="ph-badge-slot {{#if this.unlocked}}unlocked{{/if}}"
+                 data-tooltip="{{this.name}}">
+              {{#if this.img}}
+              <img class="ph-badge-img" src="{{this.img}}" alt="{{this.name}}" />
+              {{else}}
+              <span class="ph-badge-icon">⭐</span>
+              {{/if}}
+            </div>
+            {{/each}}
+
+            {{#each (phRange this.badgesFill)}}
+            <div class="ph-badge-slot ph-badge-slot--empty">
+              <span class="ph-badge-icon">🔒</span>
+            </div>
+            {{/each}}
+          </div>
+        </div>
+      </button>
+      <div class="ph-traits-row ph-traits-row--paths">
+        {{#each this.paths}}
+        <div class="ph-traits-slot ph-traits-icon-slot{{#unless this.img}} ph-traits-icon-slot--empty{{/unless}}"
+             data-trait="paths" data-slot="{{@index}}" data-action="use-trait"
+             data-tooltip-html="{{{this.tooltipHtml}}}">
+          {{#if this.img}}<img src="{{this.img}}" alt="{{this.name}}" />{{/if}}
+        </div>
+        {{/each}}
+      </div>
+    </div>
+
+    <div class="ph-section ph-obj-column">
+        <div class="ph-obj-list">
+          <button class="ph-obj-slot ph-obj-throw{{#if ../selectedPokeballImg}} ph-obj-throw--ready{{/if}}" type="button" data-action="throw-pokeball"
+                  data-tooltip="{{localize 'pokemon-hud-like.hud.throwPokeball'}}{{#if ../selectedPokeballName}} — {{../selectedPokeballName}}{{/if}}">
+            {{#if ../selectedPokeballImg}}
+            <img class="ph-obj-img" src="{{../selectedPokeballImg}}" alt="{{../selectedPokeballName}}" />
+            {{else}}
+            <i class="fa-solid fa-circle-dot"></i>
+            {{/if}}
+          </button>
+          {{#each this.objectSlots}}
+          {{#if @index}}
+          <div class="ph-obj-slot" data-obj-slot="{{@index}}"
+               {{#if this}}data-tooltip-html="{{{this.tooltipHtml}}}"{{/if}}>
+            {{#if this.img}}<img class="ph-obj-img" src="{{this.img}}" alt="" />{{/if}}
+          </div>
+          {{/if}}
+          {{/each}}
+        </div>
+      </div>
+
+      <div class="ph-section ph-party">
+        <label class="ph-section-label">{{localize "pokemon-hud-like.hud.party"}}</label>
+        <div class="ph-party-grid">
+          {{#each this.party}}
+          <div class="ph-party-slot" data-party-slot="{{@index}}" data-actor-id="{{this.actorId}}"
+               data-tooltip="{{this.name}}" data-action="open-party-sheet" draggable="true">
+            <img class="ph-party-img" src="{{this.img}}" alt="{{this.name}}" />
+            <div class="ph-party-info">
+              <span class="ph-party-name">{{this.name}}</span>
+              <div class="ph-party-hp-bar">
+                <div class="ph-fill ph-fill--{{this.hp.color}}"
+                     style="--ph-pct:{{this.hp.pct}}"></div>
+              </div>
+            </div>
+          </div>
+          {{/each}}
+
+          {{#each (phRange this.partyFill)}}
+          <div class="ph-party-slot ph-party-slot--empty" data-party-slot="{{sum ../party.length @index}}">
+            <div class="ph-party-empty-icon">?</div>
+          </div>
+          {{/each}}
+        </div>
+      </div>
+
+      <div class="ph-inv-column">
+        <div class="ph-section ph-inventory">
+          <label class="ph-section-label ph-inv-title">{{localize "pokemon-hud-like.hud.inventory"}}</label>
+          <div class="ph-inv-filters">
+            <button class="ph-filter-btn {{#if (eq ../invFilter 'pokeball')}}active{{/if}}"
+                    data-action="set-inv-filter" data-filter="pokeball"
+                    data-tooltip="{{localize 'pokemon-hud-like.hud.filterPokeball'}}">
+              <i class="fa-solid fa-circle-dot"></i>
+            </button>
+            <button class="ph-filter-btn {{#if (eq ../invFilter 'object')}}active{{/if}}"
+                    data-action="set-inv-filter" data-filter="object"
+                    data-tooltip="{{localize 'pokemon-hud-like.hud.filterObjects'}}">
+              <i class="fa-solid fa-box"></i>
+            </button>
+            <button class="ph-filter-btn {{#if (eq ../invFilter 'key')}}active{{/if}}"
+                    data-action="set-inv-filter" data-filter="key"
+                    data-tooltip="{{localize 'pokemon-hud-like.hud.filterKey'}}">
+              <i class="fa-solid fa-key"></i>
+            </button>
+            <button class="ph-filter-btn {{#if (eq ../invFilter 'tm')}}active{{/if}}"
+                    data-action="set-inv-filter" data-filter="tm"
+                    data-tooltip="{{localize 'pokemon-hud-like.hud.filterTms'}}">
+              <i class="fa-solid fa-compact-disc"></i>
+            </button>
+          </div>
+          <div class="ph-inv-scroll">
+            <div class="ph-inv-grid ph-inv-grid--8" style="--ph-inv-cols: {{invCols}}">
+              {{#each this.inventory}}
+              <div class="ph-inv-slot{{#if (eq this.id ../../selectedPokeballId)}} ph-inv-slot--selected{{/if}}"
+                   draggable="true" data-item-id="{{this.id}}"
+                   data-action="{{#if (eq this.category 'pokeball')}}select-pokeball{{else}}use-item{{/if}}"
+                   data-tooltip-html="{{{this.tooltipHtml}}}">
+                {{#if this.img}}
+                <img class="ph-inv-img" src="{{this.img}}" alt="{{this.name}}" draggable="false" />
+                {{else}}
+                <span class="ph-inv-placeholder">—</span>
+                {{/if}}
+                {{#if this.qty}}
+                <span class="ph-inv-qty">{{this.qty}}</span>
+                {{/if}}
+              </div>
+              {{/each}}
+
+              {{#each (phRange this.inventoryFill)}}
+              <div class="ph-inv-slot ph-inv-slot--empty"></div>
+              {{/each}}
+            </div>
+          </div>
+        </div>
+        <div class="ph-inv-row-controls">
+          <button class="ph-btn ph-btn--tiny-row" data-action="inv-shrink"
+                  data-tooltip="pokemon-hud-like.hud.rowRemove" {{#unless this.invCanShrink}}disabled{{/unless}}>
+            <i class="fa-solid fa-minus"></i>
+          </button>
+          <button class="ph-btn ph-btn--tiny-row" data-action="inv-enlarge"
+                  data-tooltip="pokemon-hud-like.hud.rowAdd" {{#unless this.invCanEnlarge}}disabled{{/unless}}>
+            <i class="fa-solid fa-plus"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{/with}}
+  {{/if}}
+
+  {{#if isPokemon}}
+
+  {{#with pokemon}}
+  <div class="ph-bar-inner bar-inner--pokemon">
+    <div class="ph-pokemon-row">
+
+      <div class="ph-portrait ph-portrait--pokemon">
+
+        <button class="ph-min-btn" type="button" data-action="toggle-minimize"
+                data-tooltip="{{localize 'pokemon-hud-like.hud.minimizeHud'}}">
+          <i class="fa-solid fa-chevron-down ph-min-icon--min"></i>
+          <i class="fa-solid fa-chevron-up ph-min-icon--max"></i>
+        </button>
+        {{#if ../isGM}}
+        <div class="ph-xp-gm" data-tooltip="{{localize 'pokemon-hud-like.hud.gmXp'}}">
+          <label>{{localize "pokemon-hud-like.hud.xp"}}</label>
+          <input type="number" min="0" step="100" value="{{this.xpTotal}}" data-action="set-xp" />
+          <span class="ph-xp-gm-max">/ {{this.xpLevelMax}}</span>
+          {{#if this.isMaxLevel}}
+          <span class="ph-xp-max-tag">{{localize "pokemon-hud-like.hud.maxLevel"}}</span>
+          {{/if}}
+          {{#if this.canLevelUp}}
+          <button class="ph-btn ph-btn--levelup" data-action="level-up"
+                  data-tooltip="{{localize 'pokemon-hud-like.hud.levelUp'}}">
+            <i class="fa-solid fa-arrow-up"></i>
+          </button>
+          {{/if}}
+        </div>
+        {{/if}}
+        <div class="ph-portrait-img-wrap">
+          <img class="ph-portrait-img" src="{{this.img}}" alt="{{this.actorName}}" />
+          <button class="ph-dice-btn" type="button" data-action="toggle-stats"
+                  data-tooltip="pokemon-hud-like.hud.stats.title">
+            <i class="fa-solid fa-dice-d20"></i>
+          </button>
+          <div class="ph-portrait-info ph-portrait-info--pokemon">
+            <span class="ph-name">{{this.actorName}}</span>
+            <span class="ph-level">Lv.{{this.level}}</span>
+            <div class="ph-pokemon-types">
+              {{#each this.types}}
+              <span class="ph-type-badge" style="background:{{this.color}}; border-color:{{this.color}}">{{this.name}}</span>
+              {{/each}}
+            </div>
+          </div>
+          <div class="ph-stats-panel">
+            <label class="ph-section-label">{{localize "pokemon-hud-like.hud.stats.title"}}</label>
+            <div class="ph-stats-abilities">
+              {{#each this.stats.abilities}}
+              <div class="ph-stat-ability" data-action="roll-ability" data-ability="{{this.key}}"
+                   data-tooltip="{{localize 'pokemon-hud-like.hud.stats.rollHint'}}">
+                <span class="ph-stat-ab-label">{{localize this.labelKey}}</span>
+                <span class="ph-stat-ab-value">{{this.value}}</span>
+                <span class="ph-stat-ab-mod">{{this.modText}}</span>
+              </div>
+              {{/each}}
+            </div>
+            <div class="ph-stats-skills">
+              {{#each this.stats.skills}}
+              <div class="ph-stat-skill" data-action="roll-skill" data-skill="{{this.key}}"
+                   data-tooltip="{{localize 'pokemon-hud-like.hud.stats.rollSkillHint'}}">
+                <span class="ph-stat-sk-label">{{localize this.labelKey}}</span>
+                <span class="ph-stat-sk-total">{{this.totalText}}</span>
+              </div>
+              {{/each}}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ph-menu">
+        <div class="ph-menu-bars">
+          <div class="ph-hp-bar-top" data-tooltip="{{localize 'pokemon-hud-like.hud.hp'}}">
+            <div class="ph-hp-fill-top ph-fill--{{this.hp.color}}"
+                 style="--ph-pct:{{this.hp.pct}}"></div>
+            <span class="ph-hp-label-top">{{localize "pokemon-hud-like.hud.hp"}} {{this.hp.current}} / {{this.hp.max}}</span>
+          </div>
+          <div class="ph-xp-bar-top" data-tooltip="{{localize 'pokemon-hud-like.hud.xp'}}">
+            <div class="ph-xp-fill-top" style="--ph-pct:{{this.xp.pct}}"></div>
+            <span class="ph-xp-label-top">{{localize "pokemon-hud-like.hud.xp"}} {{this.xp.current}} / {{this.xp.max}}</span>
+          </div>
+        </div>
+        <div class="ph-menu-sections">
+
+      <div class="ph-section ph-habilidad">
+        <label class="ph-section-label">{{localize "pokemon-hud-like.hud.habilidad"}}</label>
+        <div class="ph-single-slot"
+             data-action="use-pokemon-slot"
+             data-pokemon-slot="habilidad"
+             data-tooltip-html="{{{this.habilidad.tooltipHtml}}}">
+          {{#if this.habilidad}}
+          {{#if this.habilidad.img}}<img class="ph-slot-img" src="{{this.habilidad.img}}" alt="{{this.habilidad.name}}" />{{/if}}
+          <span class="ph-slot-name">{{this.habilidad.name}}</span>
+          {{else}}
+          <span class="ph-empty-hint">—</span>
+          {{/if}}
+        </div>
+      </div>
+
+      <div class="ph-section ph-equipado">
+        <label class="ph-section-label">{{localize "pokemon-hud-like.hud.equipado"}}</label>
+        <div class="ph-single-slot"
+             data-action="use-pokemon-slot"
+             data-pokemon-slot="equipado"
+             data-tooltip-html="{{{this.equipado.tooltipHtml}}}">
+          {{#if this.equipado}}
+          {{#if this.equipado.img}}<img class="ph-slot-img" src="{{this.equipado.img}}" alt="{{this.equipado.name}}" />{{/if}}
+          <span class="ph-slot-name">{{this.equipado.name}}</span>
+          {{else}}
+          <span class="ph-empty-hint">—</span>
+          {{/if}}
+        </div>
+      </div>
+
+      <div class="ph-section ph-powers">
+        <label class="ph-section-label">{{localize "pokemon-hud-like.hud.moves"}}</label>
+<div class="ph-powers-grid">
+            {{#each this.powerSlots}}
+            <div class="ph-power-card{{#unless this.power}} ph-power-card--empty{{/unless}}{{#if this.power.depleted}} ph-power-card--no-pp{{/if}}"
+                 {{#if this.power}}data-action="use-power"{{/if}}
+                 data-power-slot="{{this.index}}"
+                 {{#if this.power}}data-power-index="{{this.index}}" data-tooltip="pokemon-hud-like.hud.usePower"{{/if}}>
+              {{#if this.power}}
+              <img class="ph-power-img" src="{{this.power.img}}" alt="{{this.power.name}}" />
+              <span class="ph-power-name" title="{{this.power.pp}}/{{this.power.maxPp}} PP">{{this.power.name}}</span>
+              <span class="ph-power-pp" title="{{this.power.pp}}/{{this.power.maxPp}} PP">{{this.power.pp}}</span>
+              {{else}}
+              <span class="ph-empty-hint">—</span>
+              {{/if}}
+            </div>
+            {{/each}}
+          </div>
+      </div>
+      </div>
+    </div>
+  </div>
+  {{/with}}
+  {{/if}}
+
+</section>

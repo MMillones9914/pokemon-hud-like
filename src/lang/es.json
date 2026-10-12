@@ -1,0 +1,175 @@
+{
+  "pokemon-hud-like": {
+    "window": {
+      "title": "Pokémon HUD"
+    },
+    "hud": {
+      "hp": "HP",
+      "xp": "XP",
+      "moves": "Movimientos",
+      "noMoves": "Sin poderes registrados",
+      "openSheet": "Abrir Ficha",
+      "addPower": "Agregar Poder",
+      "editPower": "Editar Poder",
+      "usePower": "Usar Poder",
+      "dmColumnOnly": "Solo el Director puede editar la última columna de movimientos.",
+      "paths": "Caminos",
+      "specializations": "Especializaciones",
+      "inventory": "Inventario",
+      "filterPokeball": "Pokéballs",
+      "filterObjects": "Objetos",
+      "filterKey": "Objetos Clave",
+      "filterTms": "MTs",
+      "party": "Pokémon",
+      "badges": "Medallas",
+      "habilidad": "Habilidad",
+      "equipado": "Objeto",
+      "levelUp": "Subir de nivel",
+      "levelUpHint": "Alcanzó el umbral de XP del siguiente nivel",
+      "gmXp": "Establece la XP de este pokémon (solo GM)",
+      "maxLevel": "MAX",
+      "toggleMode": "Cambiar modo HUD",
+      "minimizeHud": "Minimizar / restaurar la HUD",
+      "rowAdd": "Añadir una fila",
+      "rowRemove": "Quitar una fila",
+      "throwPokeball": "Lanzar Pokéball",
+      "noPokeballSelected": "Selecciona primero una Pokéball en el inventario.",
+      "noCaptureTarget": "Marca primero un Pokémon como objetivo en el lienzo.",
+      "stats": {
+        "title": "Estadísticas",
+        "rollHint": "Clic: prueba de característica · Clic derecho: salvación",
+        "rollSkillHint": "Tirar habilidad",
+        "ability": {
+          "str": "Fuerza",
+          "dex": "Destreza",
+          "con": "Constitución",
+          "int": "Inteligencia",
+          "wis": "Sabiduría",
+          "cha": "Carisma"
+        },
+        "skill": {
+          "acr": "Acrobacias",
+          "ani": "Trato con Animales",
+          "arc": "Arcanos",
+          "ath": "Atletismo",
+          "dec": "Engaño",
+          "his": "Historia",
+          "ins": "Perspicacia",
+          "int": "Intimidación",
+          "inv": "Investigación",
+          "med": "Medicina",
+          "nat": "Naturaleza",
+          "per": "Percepción",
+          "prc": "Interpretación",
+          "prf": "Persuasión",
+          "rel": "Religión",
+          "slt": "Juego de Manos",
+          "ste": "Sigilo",
+          "sur": "Supervivencia"
+        }
+      }
+    },
+    "chat": {
+      "powerUsed": "¡{name} se usó!",
+      "itemUsed": "{actor} usa {item}.",
+      "abilityCheck": "{actor} — Prueba de {ability}",
+      "abilitySave": "{actor} — Salvación de {ability}",
+      "skillCheck": "{actor} — {skill}",
+      "captureThrow": "{actor} lanza {ball} contra {target} (CD {dc})",
+      "captureModifier": "(base {base}, {mod})"
+    },
+    "capture": {
+      "success": "¡{target} ha sido capturado!",
+      "fail": "¡{target} se ha escapado!",
+      "masterBall": "{actor} lanza {ball} — ¡{target} capturado automáticamente!"
+    },
+    "powerEditor": {
+      "titleNew": "Nuevo Poder",
+      "titleEdit": "Editar Poder",
+      "name": "Nombre",
+      "type": "Tipo",
+      "description": "Descripción",
+      "damage": "Daño",
+      "pp": "PP",
+      "maxPp": "PP Máx",
+      "effect": "Efecto",
+      "img": "Imagen",
+      "requiresSave": "Requiere salvación",
+      "saveType": "Tipo de salvación",
+      "delete": "Eliminar",
+      "deleteConfirmTitle": "Eliminar Poder",
+      "deleteConfirmContent": "¿Quitar este poder del actor?",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "nameRequired": "El nombre del poder es obligatorio.",
+      "gmOnly": "Solo el Director de Juego puede editar poderes.",
+      "gridFull": "La cuadrícula de movimientos está llena.",
+      "type": {
+        "normal": "Normal",
+        "fire": "Fuego",
+        "water": "Agua",
+        "electric": "Eléctrico",
+        "grass": "Planta",
+        "ice": "Hielo",
+        "fighting": "Lucha",
+        "poison": "Veneno",
+        "ground": "Tierra",
+        "flying": "Volador",
+        "psychic": "Psíquico",
+        "bug": "Bicho",
+        "rock": "Roca",
+        "ghost": "Fantasma",
+        "dragon": "Dragón",
+        "dark": "Siniestro",
+        "steel": "Acero",
+        "fairy": "Hada"
+      }
+    },
+    "settings": {
+      "enabled": {
+        "name": "Habilitar Pokémon HUD",
+        "hint": "Activar la superposición estilo Pokémon al seleccionar tokens."
+      },
+      "autoShow": {
+        "name": "Mostrar automáticamente",
+        "hint": "Mostrar el HUD automáticamente al seleccionar un token."
+      },
+      "hideMacroBar": {
+        "name": "Ocultar la barra de macros de Foundry",
+        "hint": "Mantiene la fila de macros/hotbar de Foundry oculta de forma permanente, dejando solo el HUD en la parte inferior de la pantalla. Si está desactivada, la barra de macros solo se oculta mientras el HUD está abierto."
+      },
+      "position": {
+        "name": "Posición del HUD",
+        "hint": "Anclar el HUD respecto al token seleccionado.",
+        "left": "Izquierda",
+        "right": "Derecha",
+        "top": "Arriba",
+        "bottom": "Abajo"
+      },
+      "offsetX": {
+        "name": "Desplazamiento horizontal",
+        "hint": "Distancia horizontal (px) desde el borde del token hasta la ventana del HUD."
+      },
+      "offsetY": {
+        "name": "Desplazamiento vertical",
+        "hint": "Distancia vertical (px) desde el borde del token hasta la ventana del HUD."
+      },
+      "accentColor": {
+        "name": "Color de acento del HUD",
+        "hint": "Color base del HUD que se muestra detrás de la imagen de fondo (las zonas transparentes dejan ver este color)."
+      },
+      "debug": {
+        "name": "Registro de depuración",
+        "hint": "Registrar información adicional en la consola del navegador."
+      }
+    },
+    "keybindings": {
+      "open": {
+        "name": "Abrir Pokémon HUD",
+        "hint": "Alternar la superposición Pokémon HUD del token controlado actualmente.",
+        "noToken": "Selecciona o controla un token primero para abrir el Pokémon HUD.",
+        "mobile": "El Pokémon HUD está oculto en modo móvil."
+      }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "pokemon-hud-like",
+  "version": "0.1.6",
+  "description": "Pokémon HUD-like module for Foundry VTT v14",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"src/**/*.{ts,scss}\" \"tests/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run",
+    "test": "npm run lint && npm run typecheck && npm run test:unit && npm run build",
+    "link:foundry": "node scripts/link-foundry.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.24.0",
+    "eslint": "^9.24.0",
+    "eslint-config-prettier": "^10.1.1",
+    "fvtt-types": "github:League-of-Foundry-Developers/foundry-vtt-types#main",
+    "globals": "^17.12.0",
+    "prettier": "^3.5.3",
+    "rollup-plugin-copy": "^3.5.0",
+    "sass": "^1.89.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.35.0",
+    "vite": "^7.0.0",
+    "vitest": "^3.2.0"
+  }
+}

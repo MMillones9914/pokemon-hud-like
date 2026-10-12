@@ -1,0 +1,175 @@
+{
+  "pokemon-hud-like": {
+    "window": {
+      "title": "Pokémon HUD"
+    },
+    "hud": {
+      "hp": "HP",
+      "xp": "XP",
+      "moves": "Moves",
+      "noMoves": "No powers registered",
+      "openSheet": "Open Sheet",
+      "addPower": "Add Power",
+      "editPower": "Edit Power",
+      "usePower": "Use Power",
+      "dmColumnOnly": "Only the Game Master can edit the last moves column.",
+      "paths": "Paths",
+      "specializations": "Specializations",
+      "inventory": "Inventory",
+      "filterPokeball": "Pokéballs",
+      "filterObjects": "Objects",
+      "filterKey": "Key Items",
+      "filterTms": "TMs",
+      "party": "Party",
+      "badges": "Badges",
+      "habilidad": "Ability",
+      "equipado": "Object",
+      "levelUp": "Level Up",
+      "levelUpHint": "Reached the XP threshold for the next level",
+      "gmXp": "Set this Pokémon's XP (GM only)",
+      "maxLevel": "MAX",
+      "toggleMode": "Toggle HUD mode",
+      "minimizeHud": "Minimize / restore the HUD",
+      "rowAdd": "Add a row",
+      "rowRemove": "Remove a row",
+      "throwPokeball": "Throw Pokéball",
+      "noPokeballSelected": "Select a Pokéball in the inventory first.",
+      "noCaptureTarget": "Target a Pokémon on the canvas first.",
+      "stats": {
+        "title": "Stats",
+        "rollHint": "Click: ability check · Right-click: saving throw",
+        "rollSkillHint": "Roll skill",
+        "ability": {
+          "str": "Strength",
+          "dex": "Dexterity",
+          "con": "Constitution",
+          "int": "Intelligence",
+          "wis": "Wisdom",
+          "cha": "Charisma"
+        },
+        "skill": {
+          "acr": "Acrobatics",
+          "ani": "Animal Handling",
+          "arc": "Arcana",
+          "ath": "Athletics",
+          "dec": "Deception",
+          "his": "History",
+          "ins": "Insight",
+          "int": "Intimidation",
+          "inv": "Investigation",
+          "med": "Medicine",
+          "nat": "Nature",
+          "per": "Perception",
+          "prc": "Performance",
+          "prf": "Persuasion",
+          "rel": "Religion",
+          "slt": "Sleight of Hand",
+          "ste": "Stealth",
+          "sur": "Survival"
+        }
+      }
+    },
+    "chat": {
+      "powerUsed": "{name} used!",
+      "itemUsed": "{actor} uses {item}.",
+      "abilityCheck": "{actor} — {ability} check",
+      "abilitySave": "{actor} — {ability} saving throw",
+      "skillCheck": "{actor} — {skill} check",
+      "captureThrow": "{actor} throws {ball} at {target} (DC {dc})",
+      "captureModifier": "(base {base}, {mod})"
+    },
+    "capture": {
+      "success": "Gotcha! {target} was caught!",
+      "fail": "Oh no! {target} escaped!",
+      "masterBall": "{actor} throws {ball} — {target} was caught automatically!"
+    },
+    "powerEditor": {
+      "titleNew": "New Power",
+      "titleEdit": "Edit Power",
+      "name": "Name",
+      "type": "Type",
+      "description": "Description",
+      "damage": "Damage",
+      "pp": "PP",
+      "maxPp": "Max PP",
+      "effect": "Effect",
+      "img": "Image",
+      "requiresSave": "Requires save",
+      "saveType": "Save type",
+      "delete": "Delete",
+      "deleteConfirmTitle": "Delete Power",
+      "deleteConfirmContent": "Remove this power from the actor?",
+      "cancel": "Cancel",
+      "save": "Save",
+      "nameRequired": "A power name is required.",
+      "gmOnly": "Only Game Masters can edit powers.",
+      "gridFull": "The moves grid is full.",
+      "type": {
+        "normal": "Normal",
+        "fire": "Fire",
+        "water": "Water",
+        "electric": "Electric",
+        "grass": "Grass",
+        "ice": "Ice",
+        "fighting": "Fighting",
+        "poison": "Poison",
+        "ground": "Ground",
+        "flying": "Flying",
+        "psychic": "Psychic",
+        "bug": "Bug",
+        "rock": "Rock",
+        "ghost": "Ghost",
+        "dragon": "Dragon",
+        "dark": "Dark",
+        "steel": "Steel",
+        "fairy": "Fairy"
+      }
+    },
+    "settings": {
+      "enabled": {
+        "name": "Enable Pokémon HUD",
+        "hint": "Activate the Pokémon-style HUD overlay for selected tokens."
+      },
+      "autoShow": {
+        "name": "Auto-show HUD",
+        "hint": "Automatically display the HUD when a token is selected."
+      },
+      "hideMacroBar": {
+        "name": "Hide Foundry's macro bar",
+        "hint": "Keep Foundry's macro/hotbar row permanently hidden so only the HUD sits at the bottom of the screen. When disabled, the macro bar is hidden only while the HUD is open."
+      },
+      "position": {
+        "name": "HUD Position",
+        "hint": "Anchor the HUD relative to the selected token.",
+        "left": "Left",
+        "right": "Right",
+        "top": "Top",
+        "bottom": "Bottom"
+      },
+      "offsetX": {
+        "name": "Horizontal offset",
+        "hint": "Horizontal distance (px) from the token edge to the HUD window."
+      },
+      "offsetY": {
+        "name": "Vertical offset",
+        "hint": "Vertical distance (px) from the token edge to the HUD window."
+      },
+      "accentColor": {
+        "name": "HUD accent color",
+        "hint": "Base color of the HUD shown behind the background image (transparent areas reveal this color)."
+      },
+      "debug": {
+        "name": "Debug logging",
+        "hint": "Log additional information to the browser console."
+      }
+    },
+    "keybindings": {
+      "open": {
+        "name": "Open Pokémon HUD",
+        "hint": "Toggle the Pokémon HUD overlay for the currently controlled token.",
+        "noToken": "Select or control a token first to open the Pokémon HUD.",
+        "mobile": "The Pokémon HUD is hidden in mobile mode."
+      }
+    }
+  }
+}
