@@ -39,8 +39,10 @@
       "featureHint": "Arrastra una feature para añadirla · Clic derecho para eliminar",
       "stats": {
         "title": "Estadísticas",
-        "rollHint": "Clic: prueba de característica · Clic derecho: salvación",
-        "rollSkillHint": "Tirar habilidad",
+        "rollHint": "Clic: prueba de característica · Clic derecho: salvación · Alt: ventaja · Ctrl: desventaja",
+        "rollSkillHint": "Tirar habilidad · Alt: ventaja · Ctrl: desventaja",
+        "advantage": "Ventaja",
+        "disadvantage": "Desventaja",
         "ability": {
           "str": "Fuerza",
           "dex": "Destreza",

@@ -39,8 +39,10 @@
       "featureHint": "Drag a feature here to add · Right-click to remove",
       "stats": {
         "title": "Stats",
-        "rollHint": "Click: ability check · Right-click: saving throw",
-        "rollSkillHint": "Roll skill",
+        "rollHint": "Click: ability check · Right-click: saving throw · Alt: advantage · Ctrl: disadvantage",
+        "rollSkillHint": "Roll skill · Alt: advantage · Ctrl: disadvantage",
+        "advantage": "Advantage",
+        "disadvantage": "Disadvantage",
         "ability": {
           "str": "Strength",
           "dex": "Dexterity",

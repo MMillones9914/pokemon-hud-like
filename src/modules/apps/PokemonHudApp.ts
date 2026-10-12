@@ -44,6 +44,7 @@ import {
 import { isMobileMode } from "../core/mobile";
 import { getSettings } from "../core/settings";
 import { readStatBreakdown } from "../core/stat-breakdown";
+import { d20Formula, rollModeFromKeys, type RollMode } from "../core/roll-mode";
 
 const MODULE_ID = "pokemon-hud-like";
 
@@ -100,7 +101,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     foundry.applications.api.HandlebarsApplicationMixin.HandlebarsTemplatePart
   > = {
     bar: {
-      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.9.hbs`,
+      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.10.hbs`,
       id: `${MODULE_ID}-bar`,
       root: true
     }
@@ -161,6 +162,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     if (!button) return;
     const action = button.dataset.action;
     if (!action) return;
+    const mode = rollModeFromKeys(event as MouseEvent);
     if (action === "use-power") void this.#onUsePower(button);
     else if (action === "use-pokemon-slot") void this.#onUsePokemonSlot(button);
     else if (action === "open-sheet") this.#onOpenSheet();
@@ -176,8 +178,8 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     else if (action === "toggle-minimize") this.#onToggleMinimize();
     else if (action === "level-up") void this.#onLevelUp();
     else if (action === "toggle-stats") this.#onToggleStats();
-    else if (action === "roll-ability") void this.#onRollAbility(button);
-    else if (action === "roll-skill") void this.#onRollSkill(button);
+    else if (action === "roll-ability") void this.#onRollAbility(button, mode);
+    else if (action === "roll-skill") void this.#onRollSkill(button, mode);
   };
 
   #onChange = (event: Event): void => {
@@ -990,17 +992,21 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     this.element.classList.toggle("ph-show-stats", this.#showStats);
   }
 
-  #onRollAbility(button: HTMLButtonElement): void {
+  #onRollAbility(button: HTMLButtonElement, mode: RollMode = "normal"): void {
     const key = button.dataset.ability;
-    if (key) void this.#rollAbility(key, "check");
+    if (key) void this.#rollAbility(key, "check", mode);
   }
 
-  #onRollSkill(button: HTMLButtonElement): void {
+  #onRollSkill(button: HTMLButtonElement, mode: RollMode = "normal"): void {
     const key = button.dataset.skill;
-    if (key) void this.#rollSkill(key);
+    if (key) void this.#rollSkill(key, mode);
   }
 
-  async #rollAbility(key: string, kind: "check" | "save"): Promise<void> {
+  async #rollAbility(
+    key: string,
+    kind: "check" | "save",
+    mode: RollMode = "normal"
+  ): Promise<void> {
     const actor = this.#actor;
     if (!actor) return;
     const ability = readStatBreakdown(actor.system).abilities.find((a) => a.key === key);
@@ -1011,10 +1017,10 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       kind === "save" ? "pokemon-hud-like.chat.abilitySave" : "pokemon-hud-like.chat.abilityCheck",
       { actor: actor.name, ability: label }
     );
-    await this.#rollD20(mod, flavor, actor);
+    await this.#rollD20(mod, flavor, actor, mode);
   }
 
-  async #rollSkill(key: string): Promise<void> {
+  async #rollSkill(key: string, mode: RollMode = "normal"): Promise<void> {
     const actor = this.#actor;
     if (!actor) return;
     const skill = readStatBreakdown(actor.system).skills.find((s) => s.key === key);
@@ -1024,16 +1030,31 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       actor: actor.name,
       skill: label
     });
-    await this.#rollD20(skill.total, flavor, actor);
+    await this.#rollD20(skill.total, flavor, actor, mode);
   }
 
-  async #rollD20(mod: number, flavor: string, actor: Actor): Promise<void> {
+  #rollModeLabel(mode: RollMode): string {
+    if (mode === "advantage") return game.i18n.localize("pokemon-hud-like.hud.stats.advantage");
+    if (mode === "disadvantage") {
+      return game.i18n.localize("pokemon-hud-like.hud.stats.disadvantage");
+    }
+    return "";
+  }
+
+  async #rollD20(
+    mod: number,
+    flavor: string,
+    actor: Actor,
+    mode: RollMode = "normal"
+  ): Promise<void> {
     try {
-      const roll = new Roll(`1d20 + ${mod}`, { mod });
+      const roll = new Roll(`${d20Formula(mode)} + ${mod}`, { mod });
       await roll.evaluate();
+      const modeLabel = this.#rollModeLabel(mode);
+      const text = modeLabel ? `${flavor} (${modeLabel})` : flavor;
       await roll.toMessage({
         speaker: ChatMessage.getSpeaker({ actor: actor as never }),
-        flavor
+        flavor: text
       });
     } catch (err) {
       logger.warn(`rollD20: ${String(err)}`);
@@ -1052,7 +1073,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       const key = abilityCell.dataset.ability;
       if (key) {
         event.preventDefault();
-        void this.#rollAbility(key, "save");
+        void this.#rollAbility(key, "save", rollModeFromKeys(event));
       }
       return;
     }
