@@ -873,6 +873,37 @@ body.swipe-vtt:not(.swipe-vtt-foundry-ui) [class*="pokemon-hud-like"][class*="ph
 .ph-obj-throw--ready .ph-obj-img {
   pointer-events: none;
 }
+
+.ph-obj-pokedex {
+  cursor: pointer;
+  color: var(--ph-text);
+  background: rgba(0, 0, 0, 0.15);
+}
+.ph-obj-pokedex:hover {
+  border-color: var(--ph-hud-accent);
+  color: var(--ph-hud-accent);
+}
+.ph-obj-pokedex i {
+  font-size: 18px;
+  pointer-events: none;
+}
+.ph-obj-pokedex--ready {
+  border-style: solid;
+  border-color: var(--ph-hud-accent);
+  background: rgba(0, 0, 0, 0.25);
+}
+.ph-obj-pokedex--ready:hover {
+  box-shadow: 0 0 6px var(--ph-hud-accent);
+}
+.ph-obj-pokedex--locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ph-obj-pokedex--locked:hover {
+  border-color: var(--ph-border);
+  color: var(--ph-text);
+  box-shadow: none;
+}
 .ph-party-info {
   display: flex;
   flex-direction: column;
@@ -1416,6 +1447,61 @@ body.swipe-vtt:not(.swipe-vtt-foundry-ui) [class*="pokemon-hud-like"][class*="ph
 }
 .pokemon-hud-chat--power {
   padding: 4px 6px;
+}
+.pokemon-hud-chat--pokedex {
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.pokemon-hud-chat--pokedex .ph-chat-header {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ph-text);
+}
+.pokemon-hud-chat--pokedex .ph-dex-roll {
+  display: flex;
+  justify-content: center;
+}
+.ph-dex-base {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--ph-border);
+}
+.ph-dex-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ph-text);
+}
+.ph-dex-cr {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ph-hud-accent);
+  white-space: nowrap;
+}
+.ph-dex-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.ph-dex-section-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ph-text-muted);
+}
+.ph-dex-section-value {
+  font-size: 11px;
+  color: var(--ph-text);
+}
+.ph-dex-hint {
+  font-size: 10px;
+  font-style: italic;
+  color: var(--ph-text-muted);
 }
 .pokemon-hud-chat--power .ph-chat-header {
   font-size: 11px;

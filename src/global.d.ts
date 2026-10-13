@@ -13,6 +13,7 @@ declare global {
     "pokemon-hud-like.offsetY": number;
     "pokemon-hud-like.accentColor": string;
     "pokemon-hud-like.hideMacroBar": boolean;
+    "pokemon-hud-like.keyItems": string;
     "pokemon-hud-like.debug": boolean;
     "core.uiConfig": foundry.applications.settings.menus.UIConfig.GameUIConfiguration;
   }

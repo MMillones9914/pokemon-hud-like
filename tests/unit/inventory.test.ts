@@ -8,9 +8,9 @@ describe("categorizeItemName", () => {
     expect(categorizeItemName("Pokeball")).toBe("pokeball");
   });
 
-  it("classifies key items and TMs", () => {
-    expect(categorizeItemName("Key: Bike")).toBe("key");
-    expect(categorizeItemName("Clave: Bici")).toBe("key");
+  it("classifies TMs and no longer treats Key/Clave prefixes as key items", () => {
+    expect(categorizeItemName("Key: Bike")).toBe("object");
+    expect(categorizeItemName("Clave: Bici")).toBe("object");
     expect(categorizeItemName("TM: Flamethrower")).toBe("tm");
   });
 
@@ -28,8 +28,17 @@ describe("categorizeInventoryItem", () => {
 
   it("delegates non-feat items to name/subtype classification", () => {
     expect(categorizeInventoryItem("consumable", "Potion")).toBe("object");
-    expect(categorizeInventoryItem("equipment", "Key: Bike")).toBe("key");
+    expect(categorizeInventoryItem("equipment", "Key: Bike")).toBe("object");
     expect(categorizeInventoryItem("consumable", "TM: Flamethrower")).toBe("tm");
     expect(categorizeInventoryItem("loot", "Great Ball")).toBe("pokeball");
+  });
+
+  it("treats only configured names as key items", () => {
+    const keyNames = ["Bici", "Pokédex"];
+    expect(categorizeInventoryItem("equipment", "Bici", "", keyNames)).toBe("key");
+    expect(categorizeInventoryItem("equipment", "bici", "", keyNames)).toBe("key");
+    expect(categorizeInventoryItem("equipment", "Pokedex", "", keyNames)).toBe("key");
+    expect(categorizeInventoryItem("equipment", "Key: Bike", "", keyNames)).toBe("object");
+    expect(categorizeInventoryItem("consumable", "Potion", "", keyNames)).toBe("object");
   });
 });

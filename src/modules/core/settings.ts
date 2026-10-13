@@ -1,4 +1,5 @@
 import type { HudPosition } from "../types";
+import { parseKeyItemNames } from "./key-items";
 
 const SCOPE = "pokemon-hud-like";
 
@@ -10,6 +11,7 @@ export const SETTINGS = {
   offsetY: "offsetY",
   accentColor: "accentColor",
   hideMacroBar: "hideMacroBar",
+  keyItems: "keyItems",
   debug: "debug"
 } as const;
 
@@ -94,6 +96,15 @@ export function registerSettings(hooks?: SettingsHooks): void {
     onChange: () => hooks?.onHideMacroBarChange?.()
   });
 
+  game.settings.register(SCOPE, SETTINGS.keyItems, {
+    name: "pokemon-hud-like.settings.keyItems.name",
+    hint: "pokemon-hud-like.settings.keyItems.hint",
+    scope: "world",
+    config: true,
+    type: String,
+    default: ""
+  });
+
   game.settings.register(SCOPE, SETTINGS.debug, {
     name: "pokemon-hud-like.settings.debug.name",
     hint: "pokemon-hud-like.settings.debug.hint",
@@ -102,6 +113,15 @@ export function registerSettings(hooks?: SettingsHooks): void {
     type: Boolean,
     default: false
   });
+}
+
+/** Item names configured as "key items" (comma / newline separated). */
+export function getKeyItemNames(): string[] {
+  try {
+    return parseKeyItemNames(game.settings.get(SCOPE, SETTINGS.keyItems));
+  } catch {
+    return [];
+  }
 }
 
 export function getSettings(): {

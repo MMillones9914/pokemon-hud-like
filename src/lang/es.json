@@ -37,6 +37,9 @@
       "noPokeballSelected": "Selecciona primero una Pokéball en el inventario.",
       "noCaptureTarget": "Marca primero un Pokémon como objetivo en el lienzo.",
       "featureHint": "Arrastra una feature para añadirla · Clic derecho para eliminar",
+      "pokedex": "Pokédex",
+      "pokedexNoItem": "Necesitas una Pokédex en tu inventario.",
+      "noPokedexTarget": "Marca primero un Pokémon como objetivo en el lienzo.",
       "stats": {
         "title": "Estadísticas",
         "rollHint": "Clic: prueba de característica · Clic derecho: salvación · Alt: ventaja · Ctrl: desventaja",
@@ -80,7 +83,18 @@
       "abilitySave": "{actor} — Salvación de {ability}",
       "skillCheck": "{actor} — {skill}",
       "captureThrow": "{actor} lanza {ball} contra {target} (CD {dc})",
-      "captureModifier": "(base {base}, {mod})"
+      "captureModifier": "(base {base}, {mod})",
+      "pokedex": "{actor} escanea a {target} con la Pokédex",
+      "pokedexCr": "CR {cr}",
+      "pokedexTraits": "Resistencias y debilidades",
+      "pokedexWeaknesses": "Débil contra",
+      "pokedexResistances": "Resiste",
+      "pokedexImmunities": "Inmune a",
+      "pokedexMoves": "Movimientos actuales",
+      "pokedexNature": "Naturaleza",
+      "pokedexAbility": "Habilidad",
+      "pokedexLow": "El escaneo solo reveló lo básico (resultado {total}).",
+      "pokedexUnknown": "—"
     },
     "capture": {
       "success": "¡{target} ha sido capturado!",
@@ -141,6 +155,10 @@
       "hideMacroBar": {
         "name": "Ocultar la barra de macros de Foundry",
         "hint": "Mantiene la fila de macros/hotbar de Foundry oculta de forma permanente, dejando solo el HUD en la parte inferior de la pantalla. Si está desactivada, la barra de macros solo se oculta mientras el HUD está abierto."
+      },
+      "keyItems": {
+        "name": "Objetos clave",
+        "hint": "Nombres de objetos que deben aparecer en la pestaña Objetos Clave, separados por comas o saltos de línea."
       },
       "position": {
         "name": "Posición del HUD",

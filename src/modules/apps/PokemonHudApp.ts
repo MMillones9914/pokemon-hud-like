@@ -9,6 +9,7 @@ import {
   detectHudMode,
   getPokemonNpcFlags,
   getTrainerFlags,
+  hasPokedex,
   INV_COLS,
   INV_ROWS_DEFAULT,
   INV_ROWS_MAX,
@@ -16,6 +17,7 @@ import {
   levelUpPokemon,
   moveActorItem,
   readPokemonLevel,
+  readPokedexInfo,
   removePartySlot,
   resolvePartyActor,
   setObjectSlot,
@@ -26,6 +28,11 @@ import {
 } from "../core/hud-data";
 import { canLevelUp } from "../core/leveling";
 import { logger } from "../core/logger";
+import {
+  pokedexTier,
+  type PokedexInfo,
+  type PokedexTier
+} from "../core/pokedex";
 import {
   captureDc,
   captureModifiers,
@@ -47,6 +54,39 @@ import { readStatBreakdown } from "../core/stat-breakdown";
 import { d20Formula, rollModeFromKeys, type RollMode } from "../core/roll-mode";
 
 const MODULE_ID = "pokemon-hud-like";
+
+function escapePokedexHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function pokedexSection(label: string, value: string): string {
+  return (
+    `<div class="ph-dex-section">` +
+    `<div class="ph-dex-section-label">${escapePokedexHtml(label)}</div>` +
+    `<div class="ph-dex-section-value">${value}</div>` +
+    `</div>`
+  );
+}
+
+function damageTypeLabel(key: string): string {
+  try {
+    const config = (
+      globalThis as unknown as {
+        CONFIG?: { DND5E?: { damageTypes?: Record<string, { label?: string }> } };
+      }
+    ).CONFIG;
+    const label = config?.DND5E?.damageTypes?.[key]?.label;
+    if (label) return game.i18n.localize(label);
+  } catch {
+    // fall through to a plain label
+  }
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
 
 interface BarRenderContext
   extends
@@ -101,7 +141,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     foundry.applications.api.HandlebarsApplicationMixin.HandlebarsTemplatePart
   > = {
     bar: {
-      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.10.hbs`,
+      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.11.hbs`,
       id: `${MODULE_ID}-bar`,
       root: true
     }
@@ -170,6 +210,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     else if (action === "use-item") void this.#onUseItem(button);
     else if (action === "select-pokeball") this.#onSelectPokeball(button);
     else if (action === "throw-pokeball") void this.#onThrowPokeball();
+    else if (action === "open-pokedex") void this.#onOpenPokedex(mode);
     else if (action === "use-trait") void this.#onUseTrait(button);
     else if (action === "set-inv-filter") this.#onSetInvFilter(button);
     else if (action === "inv-enlarge") this.#onAddRow();
@@ -1059,6 +1100,144 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     } catch (err) {
       logger.warn(`rollD20: ${String(err)}`);
     }
+  }
+
+  async #onOpenPokedex(mode: RollMode = "normal"): Promise<void> {
+    const actor = this.#actor;
+    if (!actor || this.#mode !== "trainer") return;
+    if (!hasPokedex(actor)) {
+      ui.notifications?.warn(game.i18n.localize("pokemon-hud-like.hud.pokedexNoItem"));
+      return;
+    }
+    const targets = Array.from((game.user?.targets ?? []) as Iterable<{ actor?: Actor | null }>);
+    const targetActor = targets[0]?.actor ?? null;
+    if (!targetActor) {
+      ui.notifications?.warn(game.i18n.localize("pokemon-hud-like.hud.noPokedexTarget"));
+      return;
+    }
+    const info = readPokedexInfo(targetActor);
+    let roll: Roll | null = null;
+    let total = 0;
+    try {
+      roll = new Roll(d20Formula(mode));
+      await roll.evaluate();
+      total = Number(roll.total ?? 0);
+    } catch (err) {
+      logger.warn(`pokedexRoll: ${String(err)}`);
+    }
+    const tier = pokedexTier(total);
+    const content = await this.#buildPokedexContent({
+      actor,
+      target: targetActor,
+      info,
+      roll,
+      total,
+      tier,
+      mode
+    });
+    const messageData: Record<string, unknown> = {
+      speaker: ChatMessage.getSpeaker({ actor: actor as never }),
+      content
+    };
+    if (roll) messageData.rolls = [roll];
+    try {
+      await ChatMessage.create(messageData as never);
+    } catch (err) {
+      logger.warn(`pokedexChat: ${String(err)}`);
+    }
+  }
+
+  async #buildPokedexContent(opts: {
+    actor: Actor;
+    target: Actor;
+    info: PokedexInfo;
+    roll: Roll | null;
+    total: number;
+    tier: PokedexTier;
+    mode: RollMode;
+  }): Promise<string> {
+    const { actor, target, info, roll, total, tier, mode } = opts;
+    const unknown = game.i18n.localize("pokemon-hud-like.chat.pokedexUnknown");
+    const header = game.i18n.format("pokemon-hud-like.chat.pokedex", {
+      actor: actor.name,
+      target: info.name || target.name
+    });
+    const modeLabel = this.#rollModeLabel(mode);
+    const rollHtml = roll ? await roll.render() : "";
+    const parts: string[] = [
+      `<div class="ph-dex-base"><span class="ph-dex-name">${escapePokedexHtml(info.name)}</span>` +
+        `<span class="ph-dex-cr">${game.i18n.format("pokemon-hud-like.chat.pokedexCr", {
+          cr: escapePokedexHtml(info.cr)
+        })}</span></div>`
+    ];
+    if (tier >= 1) {
+      const lines: string[] = [];
+      if (info.weaknesses.length) {
+        lines.push(
+          `${game.i18n.localize("pokemon-hud-like.chat.pokedexWeaknesses")}: ${info.weaknesses
+            .map((entry) => escapePokedexHtml(damageTypeLabel(entry)))
+            .join(", ")}`
+        );
+      }
+      if (info.resistances.length) {
+        lines.push(
+          `${game.i18n.localize("pokemon-hud-like.chat.pokedexResistances")}: ${info.resistances
+            .map((entry) => escapePokedexHtml(damageTypeLabel(entry)))
+            .join(", ")}`
+        );
+      }
+      if (info.immunities.length) {
+        lines.push(
+          `${game.i18n.localize("pokemon-hud-like.chat.pokedexImmunities")}: ${info.immunities
+            .map((entry) => escapePokedexHtml(damageTypeLabel(entry)))
+            .join(", ")}`
+        );
+      }
+      parts.push(
+        pokedexSection(
+          game.i18n.localize("pokemon-hud-like.chat.pokedexTraits"),
+          lines.length ? lines.join("<br>") : unknown
+        )
+      );
+    }
+    if (tier >= 2) {
+      parts.push(
+        pokedexSection(
+          game.i18n.localize("pokemon-hud-like.chat.pokedexMoves"),
+          info.moves.length ? info.moves.map(escapePokedexHtml).join(", ") : unknown
+        )
+      );
+    }
+    if (tier >= 3) {
+      parts.push(
+        pokedexSection(
+          game.i18n.localize("pokemon-hud-like.chat.pokedexNature"),
+          info.nature ? escapePokedexHtml(info.nature) : unknown
+        )
+      );
+      parts.push(
+        pokedexSection(
+          game.i18n.localize("pokemon-hud-like.chat.pokedexAbility"),
+          info.ability ? escapePokedexHtml(info.ability) : unknown
+        )
+      );
+    }
+    const low =
+      tier === 0
+        ? `<div class="ph-dex-hint">${game.i18n.format("pokemon-hud-like.chat.pokedexLow", {
+            total
+          })}</div>`
+        : "";
+    return (
+      `<div class="pokemon-hud-chat pokemon-hud-chat--pokedex">` +
+      `<div class="ph-chat-header">${escapePokedexHtml(header)}${
+        modeLabel ? ` (${escapePokedexHtml(modeLabel)})` : ""
+      }</div>` +
+      (rollHtml ? `<div class="ph-dex-roll">${rollHtml}</div>` : "") +
+      parts.join("") +
+      low +
+      `</div>`
+    );
   }
 
   #onContextMenu = (event: MouseEvent): void => {

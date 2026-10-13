@@ -37,6 +37,9 @@
       "noPokeballSelected": "Select a Pokéball in the inventory first.",
       "noCaptureTarget": "Target a Pokémon on the canvas first.",
       "featureHint": "Drag a feature here to add · Right-click to remove",
+      "pokedex": "Pokédex",
+      "pokedexNoItem": "You need a Pokédex in your inventory.",
+      "noPokedexTarget": "Target a Pokémon on the canvas first.",
       "stats": {
         "title": "Stats",
         "rollHint": "Click: ability check · Right-click: saving throw · Alt: advantage · Ctrl: disadvantage",
@@ -80,7 +83,18 @@
       "abilitySave": "{actor} — {ability} saving throw",
       "skillCheck": "{actor} — {skill} check",
       "captureThrow": "{actor} throws {ball} at {target} (DC {dc})",
-      "captureModifier": "(base {base}, {mod})"
+      "captureModifier": "(base {base}, {mod})",
+      "pokedex": "{actor} scans {target} with the Pokédex",
+      "pokedexCr": "CR {cr}",
+      "pokedexTraits": "Resistances & weaknesses",
+      "pokedexWeaknesses": "Weak to",
+      "pokedexResistances": "Resists",
+      "pokedexImmunities": "Immune to",
+      "pokedexMoves": "Current moves",
+      "pokedexNature": "Nature",
+      "pokedexAbility": "Ability",
+      "pokedexLow": "The scan only revealed the basics (rolled {total}).",
+      "pokedexUnknown": "—"
     },
     "capture": {
       "success": "Gotcha! {target} was caught!",
@@ -141,6 +155,10 @@
       "hideMacroBar": {
         "name": "Hide Foundry's macro bar",
         "hint": "Keep Foundry's macro/hotbar row permanently hidden so only the HUD sits at the bottom of the screen. When disabled, the macro bar is hidden only while the HUD is open."
+      },
+      "keyItems": {
+        "name": "Key items",
+        "hint": "Item names that should appear in the Key Items tab, separated by commas or line breaks."
       },
       "position": {
         "name": "HUD Position",

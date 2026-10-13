@@ -19,9 +19,13 @@ import type {
 import { DEFAULT_TRAINER_FLAGS, DEFAULT_POKEMON_FLAGS } from "../types";
 import { clampedPct, hpColor, typeColor } from "./stats";
 import { MAX_LEVEL, canLevelUp, xpMaxForLevel, xpNextMax } from "./leveling";
-import { getPowerSlots } from "./powers";
+import { getPowerSlots, getPowers } from "./powers";
 import { readStatBreakdown } from "./stat-breakdown";
 import { getModuleFlag, setModuleFlag } from "./flags";
+import { getKeyItemNames } from "./settings";
+import { isKeyItem } from "./key-items";
+import { formatChallengeRating, isPokedexName, type PokedexInfo } from "./pokedex";
+import { readChallengeRating } from "./capture";
 
 export const INV_COLS = 8;
 export const INV_ROWS_DEFAULT = 2;
@@ -142,6 +146,7 @@ function isInventoryItemType(type: string): boolean {
 }
 
 export function listActorInventory(actor: Actor): InventoryItemView[] {
+  const keyNames = getKeyItemNames();
   return actorItems(actor)
     .filter((item) => isInventoryItemType(String(item.type ?? "")))
     .map((item): InventoryItemView => {
@@ -152,7 +157,7 @@ export function listActorInventory(actor: Actor): InventoryItemView[] {
       const data: InventoryItem = {
         name,
         img: typeof item.img === "string" ? item.img : undefined,
-        category: categorizeInventoryItem(itemType, name, itemSubtypeValue(sys)),
+        category: categorizeInventoryItem(itemType, name, itemSubtypeValue(sys), keyNames),
         qty: isFeat ? undefined : itemQuantity(sys),
         uuid: typeof item.uuid === "string" ? item.uuid : undefined,
         description: itemDescription(sys),
@@ -290,6 +295,70 @@ function pokemonTypes(actor: Actor): TypeBadge[] {
     result.push({ name: displayName, color: typeColor(key) });
   }
   return result;
+}
+
+function pokemonFeatNames(actor: Actor, subtype: string): string[] {
+  const names: string[] = [];
+  for (const item of actorItems(actor)) {
+    if (String(item.type) !== FEAT_ITEM_TYPE) continue;
+    const sys = (item.system ?? {}) as Record<string, unknown>;
+    const typeInfo = sys.type as Record<string, unknown> | undefined;
+    if (typeInfo?.value !== "pokemon" || typeInfo?.subtype !== subtype) continue;
+    const name = String(item.name ?? "").trim();
+    if (name) names.push(name);
+  }
+  return names;
+}
+
+function traitValues(raw: unknown): string[] {
+  const value = (raw as { value?: unknown } | null | undefined)?.value;
+  if (Array.isArray(value)) {
+    return value.map((entry) => String(entry)).filter((entry) => entry.length > 0);
+  }
+  if (typeof raw === "string") {
+    return raw
+      .split(/[;,]/)
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0);
+  }
+  return [];
+}
+
+export function readPokemonField(actor: Actor, key: string): string {
+  const fromFeat = pokemonFeatNames(actor, key)[0];
+  if (fromFeat) return fromFeat;
+  const sys = (actor.system ?? {}) as Record<string, unknown>;
+  const details = (sys.details ?? {}) as Record<string, unknown>;
+  const traits = (sys.traits ?? {}) as Record<string, unknown>;
+  for (const source of [details[key], traits[key], sys[key]]) {
+    if (typeof source === "string" && source.trim()) return source.trim();
+  }
+  return "";
+}
+
+export function hasPokedex(actor: Actor): boolean {
+  return actorItems(actor).some((item) => isPokedexName(String(item.name ?? "")));
+}
+
+export function readPokedexInfo(actor: Actor): PokedexInfo {
+  const sys = (actor.system ?? {}) as Record<string, unknown>;
+  const traits = (sys.traits ?? {}) as Record<string, unknown>;
+  let moves = getPowers(actor)
+    .map((power) => power.name)
+    .filter((name) => name.trim().length > 0);
+  if (moves.length === 0) moves = pokemonFeatNames(actor, "move");
+  const ability =
+    getPokemonNpcFlags(actor).habilidad.name.trim() || readPokemonField(actor, "ability");
+  return {
+    name: String(actor.name ?? ""),
+    cr: formatChallengeRating(readChallengeRating(sys)),
+    weaknesses: traitValues(traits.dv),
+    resistances: traitValues(traits.dr),
+    immunities: traitValues(traits.di),
+    moves,
+    nature: readPokemonField(actor, "nature"),
+    ability
+  };
 }
 
 export async function setPokemonNpcFlags(actor: Actor, flags: PokemonNpcFlags): Promise<void> {
@@ -468,6 +537,7 @@ export function buildTrainerContext(
       const s = tf.objectSlots[i];
       return s?.name ? { ...s, tooltipHtml: buildTraitTooltip(s) } : null;
     }),
+    pokedexReady: hasPokedex(actor),
     stats: readStatBreakdown(actor.system)
   };
 }
@@ -572,7 +642,6 @@ export function categorizeItemName(name: string, subtype?: string): InventoryCat
   const normalized = normalizeItemName(name);
   if (normalized.includes(" ball") || normalized.includes("pokeball")) return "pokeball";
   const haystack = `${name} ${subtype ?? ""}`.toLowerCase();
-  if (haystack.includes("key:") || haystack.includes("clave:")) return "key";
   if (haystack.includes("tm:")) return "tm";
   return "object";
 }
@@ -580,9 +649,11 @@ export function categorizeItemName(name: string, subtype?: string): InventoryCat
 export function categorizeInventoryItem(
   type: string,
   name: string,
-  subtype?: string
+  subtype?: string,
+  keyNames: readonly string[] = []
 ): InventoryCategory {
   if (String(type ?? "").toLowerCase() === FEAT_ITEM_TYPE) return "feature";
+  if (isKeyItem(name, keyNames)) return "key";
   return categorizeItemName(name, subtype);
 }
 

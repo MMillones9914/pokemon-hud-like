@@ -168,6 +168,8 @@ export interface TrainerHudContext {
 
   objectSlots: (TraitSlotView | null)[];
 
+  pokedexReady: boolean;
+
   stats: StatBreakdownView;
 }
 
