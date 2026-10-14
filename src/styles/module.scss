@@ -1458,6 +1458,9 @@ body.swipe-vtt:not(.swipe-vtt-foundry-ui) [class*="pokemon-hud-like"][class*="ph
   font-size: 11px;
   font-weight: 700;
   color: var(--ph-text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .pokemon-hud-chat--pokedex .ph-dex-roll {
   display: flex;
@@ -1502,6 +1505,22 @@ body.swipe-vtt:not(.swipe-vtt-foundry-ui) [class*="pokemon-hud-like"][class*="ph
   font-size: 10px;
   font-style: italic;
   color: var(--ph-text-muted);
+}
+.ph-dex-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+.ph-dex-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.ph-dex-move {
+  font-size: 11px;
+  color: var(--ph-text);
 }
 .pokemon-hud-chat--power .ph-chat-header {
   font-size: 11px;

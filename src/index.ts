@@ -3,6 +3,7 @@ import { registerApi } from "./modules/api";
 import { registerKeybindings } from "./modules/core/keybindings";
 import { registerSettings, getSettings } from "./modules/core/settings";
 import { registerHandlebarsHelpers } from "./modules/core/handlebars";
+import { refreshModuleTranslations } from "./modules/core/i18n";
 import { isMobileMode, watchMobileMode } from "./modules/core/mobile";
 import { logger } from "./modules/core/logger";
 import { initHudSocket } from "./modules/net/socket";
@@ -27,6 +28,8 @@ Hooks.once("ready", () => {
   logger.info(`Pokémon HUD-like v${version} ready`);
   initHudSocket();
   registerApi();
+
+  void refreshModuleTranslations();
 
   applyMacroBarPreference();
 

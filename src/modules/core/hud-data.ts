@@ -24,7 +24,8 @@ import { readStatBreakdown } from "./stat-breakdown";
 import { getModuleFlag, setModuleFlag } from "./flags";
 import { getKeyItemNames } from "./settings";
 import { isKeyItem } from "./key-items";
-import { formatChallengeRating, isPokedexName, type PokedexInfo } from "./pokedex";
+import { formatChallengeRating, isNatureName, isPokedexName, type PokedexInfo } from "./pokedex";
+import { normalizePokemonType, typeMatchups } from "./type-chart";
 import { readChallengeRating } from "./capture";
 
 export const INV_COLS = 8;
@@ -297,13 +298,27 @@ function pokemonTypes(actor: Actor): TypeBadge[] {
   return result;
 }
 
-function pokemonFeatNames(actor: Actor, subtype: string): string[] {
+function normalizeToken(value: unknown): string {
+  return String(value ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function featType(item: Item): { value: string; subtype: string } {
+  const sys = (item.system ?? {}) as Record<string, unknown>;
+  const typeInfo = (sys.type ?? {}) as Record<string, unknown>;
+  return { value: normalizeToken(typeInfo.value), subtype: normalizeToken(typeInfo.subtype) };
+}
+
+/** Names of feat items whose feature type/subtype mentions the given kind ("ability", "move", "nature"). */
+function pokemonFeatNames(actor: Actor, kind: string): string[] {
   const names: string[] = [];
   for (const item of actorItems(actor)) {
     if (String(item.type) !== FEAT_ITEM_TYPE) continue;
-    const sys = (item.system ?? {}) as Record<string, unknown>;
-    const typeInfo = sys.type as Record<string, unknown> | undefined;
-    if (typeInfo?.value !== "pokemon" || typeInfo?.subtype !== subtype) continue;
+    const { value, subtype } = featType(item);
+    if (!value.includes(kind) && !subtype.includes(kind)) continue;
     const name = String(item.name ?? "").trim();
     if (name) names.push(name);
   }
@@ -311,17 +326,85 @@ function pokemonFeatNames(actor: Actor, subtype: string): string[] {
 }
 
 function traitValues(raw: unknown): string[] {
-  const value = (raw as { value?: unknown } | null | undefined)?.value;
-  if (Array.isArray(value)) {
-    return value.map((entry) => String(entry)).filter((entry) => entry.length > 0);
+  const out: string[] = [];
+  const push = (entry: unknown): void => {
+    if (typeof entry !== "string") return;
+    const value = entry.trim();
+    if (value) out.push(value);
+  };
+  if (Array.isArray(raw)) {
+    raw.forEach(push);
+  } else if (raw && typeof raw === "object") {
+    const obj = raw as { value?: unknown; custom?: unknown };
+    if (Array.isArray(obj.value)) obj.value.forEach(push);
+    else push(obj.value);
+    if (typeof obj.custom === "string") obj.custom.split(/[;,|]/).forEach(push);
+  } else if (typeof raw === "string") {
+    raw.split(/[;,|]/).forEach(push);
   }
-  if (typeof raw === "string") {
-    return raw
-      .split(/[;,]/)
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.length > 0);
+  return out;
+}
+
+/** Resistances/weaknesses/immunities carried by the Pokémon's feature items. */
+function featTraitValues(actor: Actor, key: "dr" | "dv" | "di"): string[] {
+  const out: string[] = [];
+  for (const item of actorItems(actor)) {
+    if (String(item.type) !== FEAT_ITEM_TYPE) continue;
+    const sys = (item.system ?? {}) as Record<string, unknown>;
+    const traits = sys.traits as Record<string, unknown> | undefined;
+    if (!traits) continue;
+    out.push(...traitValues(traits[key]));
   }
-  return [];
+  return out;
+}
+
+function dedupe(entries: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const entry of entries) {
+    const key = normalizeToken(entry);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(entry);
+  }
+  return out;
+}
+
+function drawTypes(actor: Actor): string[] {
+  const keys: string[] = [];
+  for (const badge of pokemonTypes(actor)) {
+    const key = normalizePokemonType(badge.name);
+    if (key && !keys.includes(key)) keys.push(key);
+  }
+  return keys;
+}
+
+/** Nature is usually a "Monster Feature" or a feature/item named after one of the 25 natures. */
+function pokemonNature(actor: Actor): string {
+  const named = pokemonFeatNames(actor, "nature")[0];
+  if (named) return named;
+  let monster = "";
+  for (const item of actorItems(actor)) {
+    if (String(item.type) !== FEAT_ITEM_TYPE) continue;
+    if (featType(item).value !== "monster") continue;
+    const name = String(item.name ?? "").trim();
+    if (!name) continue;
+    if (isNatureName(name)) return name;
+    monster = monster || name;
+  }
+  for (const item of actorItems(actor)) {
+    const name = String(item.name ?? "").trim();
+    if (name && isNatureName(name)) return name;
+  }
+  return monster || readPokemonField(actor, "nature");
+}
+
+function pokemonAbility(actor: Actor): string {
+  return (
+    getPokemonNpcFlags(actor).habilidad.name.trim() ||
+    pokemonFeatNames(actor, "ability")[0] ||
+    readPokemonField(actor, "ability")
+  );
 }
 
 export function readPokemonField(actor: Actor, key: string): string {
@@ -336,8 +419,17 @@ export function readPokemonField(actor: Actor, key: string): string {
   return "";
 }
 
+export function readPokedexItem(actor: Actor): { name: string; img: string } | null {
+  for (const item of actorItems(actor)) {
+    const name = String(item.name ?? "").trim();
+    if (!isPokedexName(name)) continue;
+    return { name, img: String((item as { img?: unknown }).img ?? "") };
+  }
+  return null;
+}
+
 export function hasPokedex(actor: Actor): boolean {
-  return actorItems(actor).some((item) => isPokedexName(String(item.name ?? "")));
+  return readPokedexItem(actor) !== null;
 }
 
 export function readPokedexInfo(actor: Actor): PokedexInfo {
@@ -347,17 +439,26 @@ export function readPokedexInfo(actor: Actor): PokedexInfo {
     .map((power) => power.name)
     .filter((name) => name.trim().length > 0);
   if (moves.length === 0) moves = pokemonFeatNames(actor, "move");
-  const ability =
-    getPokemonNpcFlags(actor).habilidad.name.trim() || readPokemonField(actor, "ability");
+
+  let weaknesses = dedupe([...traitValues(traits.dv), ...featTraitValues(actor, "dv")]);
+  let resistances = dedupe([...traitValues(traits.dr), ...featTraitValues(actor, "dr")]);
+  let immunities = dedupe([...traitValues(traits.di), ...featTraitValues(actor, "di")]);
+  if (!weaknesses.length && !resistances.length && !immunities.length) {
+    const matchups = typeMatchups(drawTypes(actor));
+    weaknesses = [...matchups.weaknesses];
+    resistances = [...matchups.resistances];
+    immunities = [...matchups.immunities];
+  }
+
   return {
     name: String(actor.name ?? ""),
     cr: formatChallengeRating(readChallengeRating(sys)),
-    weaknesses: traitValues(traits.dv),
-    resistances: traitValues(traits.dr),
-    immunities: traitValues(traits.di),
+    weaknesses,
+    resistances,
+    immunities,
     moves,
-    nature: readPokemonField(actor, "nature"),
-    ability
+    nature: pokemonNature(actor),
+    ability: pokemonAbility(actor)
   };
 }
 
@@ -538,6 +639,7 @@ export function buildTrainerContext(
       return s?.name ? { ...s, tooltipHtml: buildTraitTooltip(s) } : null;
     }),
     pokedexReady: hasPokedex(actor),
+    pokedexImg: readPokedexItem(actor)?.img ?? null,
     stats: readStatBreakdown(actor.system)
   };
 }

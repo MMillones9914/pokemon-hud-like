@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatChallengeRating,
+  isNatureName,
   isPokedexName,
   pokedexTier
 } from "../../src/modules/core/pokedex";
@@ -56,5 +57,23 @@ describe("isPokedexName", () => {
     expect(isPokedexName("Pokedex Kanto")).toBe(true);
     expect(isPokedexName("POKÉDEX")).toBe(true);
     expect(isPokedexName("Potion")).toBe(false);
+  });
+});
+
+describe("isNatureName", () => {
+  it("recognizes English natures", () => {
+    expect(isNatureName("Timid")).toBe(true);
+    expect(isNatureName("Adamant")).toBe(true);
+    expect(isNatureName("Quirky")).toBe(true);
+  });
+
+  it("recognizes Spanish natures", () => {
+    expect(isNatureName("Miedosa")).toBe(true);
+    expect(isNatureName("Firme")).toBe(true);
+  });
+
+  it("rejects non-natures", () => {
+    expect(isNatureName("Snow Cloak")).toBe(false);
+    expect(isNatureName("Ice")).toBe(false);
   });
 });

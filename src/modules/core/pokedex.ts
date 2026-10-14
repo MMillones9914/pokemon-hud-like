@@ -43,11 +43,77 @@ export function formatChallengeRating(value: unknown): string {
   return CR_FRACTIONS[String(n)] ?? String(n);
 }
 
-/** A Pokédex is detected by item name (accent-insensitive). */
-export function isPokedexName(name: string): boolean {
-  const normalized = name
+function stripAccents(value: string): string {
+  return value
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-  return normalized.includes("pokedex");
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+/** A Pokédex is detected by item name (accent-insensitive). */
+export function isPokedexName(name: string): boolean {
+  return stripAccents(name).includes("pokedex");
+}
+
+const NATURE_NAMES = new Set(
+  [
+    // English
+    "hardy",
+    "lonely",
+    "brave",
+    "adamant",
+    "naughty",
+    "bold",
+    "docile",
+    "relaxed",
+    "impish",
+    "lax",
+    "timid",
+    "hasty",
+    "serious",
+    "jolly",
+    "naive",
+    "modest",
+    "mild",
+    "quiet",
+    "bashful",
+    "rash",
+    "calm",
+    "gentle",
+    "sassy",
+    "careful",
+    "quirky",
+    // Spanish
+    "fuerte",
+    "hurana",
+    "audaz",
+    "firme",
+    "picara",
+    "osada",
+    "docil",
+    "placida",
+    "agitada",
+    "floja",
+    "miedosa",
+    "activa",
+    "seria",
+    "alegre",
+    "ingenua",
+    "modesta",
+    "afable",
+    "quieta",
+    "timida",
+    "alocada",
+    "serena",
+    "amable",
+    "grosera",
+    "cauta",
+    "rara"
+  ].map(stripAccents)
+);
+
+/** Whether a feature/item name is one of the 25 Pokémon natures. */
+export function isNatureName(name: string): boolean {
+  return NATURE_NAMES.has(stripAccents(name));
 }

@@ -117,7 +117,11 @@
           <button class="ph-obj-slot ph-obj-pokedex{{#if pokedexReady}} ph-obj-pokedex--ready{{else}} ph-obj-pokedex--locked{{/if}}"
                   type="button" data-action="open-pokedex"
                   data-tooltip="{{#if pokedexReady}}{{localize 'pokemon-hud-like.hud.pokedex'}}{{else}}{{localize 'pokemon-hud-like.hud.pokedexNoItem'}}{{/if}}">
+            {{#if pokedexImg}}
+            <img class="ph-obj-img" src="{{pokedexImg}}" alt="" />
+            {{else}}
             <i class="fa-solid fa-book-open"></i>
+            {{/if}}
           </button>
           {{#each this.objectSlots}}
           {{#if (eq @index 2)}}
