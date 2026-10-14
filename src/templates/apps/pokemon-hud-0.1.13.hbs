@@ -106,6 +106,15 @@
 
     <div class="ph-section ph-obj-column">
         <div class="ph-obj-list">
+          <button class="ph-obj-slot ph-obj-summon{{#if this.activePokemonImg}} ph-obj-summon--active{{else}}{{#if this.hasPartySelection}} ph-obj-summon--ready{{/if}}{{/if}}"
+                  type="button" data-action="toggle-summon"
+                  data-tooltip="{{#if this.activePokemonImg}}{{localize 'pokemon-hud-like.hud.withdraw'}}{{else}}{{localize 'pokemon-hud-like.hud.summon'}}{{/if}}">
+            {{#if this.activePokemonImg}}
+            <img class="ph-obj-img" src="{{this.activePokemonImg}}" alt="" />
+            {{else}}
+            <i class="fa-solid fa-paw"></i>
+            {{/if}}
+          </button>
           <button class="ph-obj-slot ph-obj-throw{{#if ../selectedPokeballImg}} ph-obj-throw--ready{{/if}}" type="button" data-action="throw-pokeball"
                   data-tooltip="{{localize 'pokemon-hud-like.hud.throwPokeball'}}{{#if ../selectedPokeballName}} — {{../selectedPokeballName}}{{/if}}">
             {{#if ../selectedPokeballImg}}
@@ -135,11 +144,12 @@
       </div>
 
       <div class="ph-section ph-party">
-        <label class="ph-section-label">{{localize "pokemon-hud-like.hud.party"}}</label>
+        <label class="ph-section-label" data-tooltip="pokemon-hud-like.hud.partyHint">{{localize "pokemon-hud-like.hud.party"}}</label>
         <div class="ph-party-grid">
           {{#each this.party}}
-          <div class="ph-party-slot" data-party-slot="{{@index}}" data-actor-id="{{this.actorId}}"
-               data-tooltip="{{this.name}}" data-action="open-party-sheet" draggable="true">
+          <div class="ph-party-slot{{#if (eq this.actorId ../activePartyId)}} ph-party-slot--active{{/if}}{{#if (eq @index ../selectedPartyIndex)}} ph-party-slot--selected{{/if}}"
+               data-party-slot="{{@index}}" data-actor-id="{{this.actorId}}"
+               data-tooltip="{{this.name}}" data-action="select-party" draggable="true">
             <img class="ph-party-img" src="{{this.img}}" alt="{{this.name}}" />
             <div class="ph-party-info">
               <span class="ph-party-name">{{this.name}}</span>

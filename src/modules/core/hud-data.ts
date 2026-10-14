@@ -28,6 +28,8 @@ import { formatChallengeRating, isNatureName, isPokedexName, type PokedexInfo } 
 import { normalizePokemonType, typeMatchups } from "./type-chart";
 import { readChallengeRating } from "./capture";
 
+const MODULE_ID = "pokemon-hud-like";
+
 export const INV_COLS = 8;
 export const INV_ROWS_DEFAULT = 2;
 export const INV_ROWS_MIN = 2;
@@ -572,6 +574,42 @@ export function resolvePartyActor(id: string): Actor | null {
   return game.actors?.get(id) ?? null;
 }
 
+export interface ActiveSummon {
+  tokenId: string;
+  actorId: string;
+  name: string;
+  img: string;
+}
+
+interface SummonTokenDocumentLike {
+  id?: string;
+  actorId?: string;
+  flags?: Record<string, Record<string, unknown> | undefined>;
+}
+
+/** The token currently summoned by a trainer, tracked by the module's `summoner` token flag. */
+export function activeSummon(trainerId: string): ActiveSummon | null {
+  if (!trainerId) return null;
+  const tokens = (
+    globalThis as unknown as {
+      canvas?: { tokens?: { placeables?: unknown } };
+    }
+  ).canvas?.tokens?.placeables;
+  if (!Array.isArray(tokens)) return null;
+  for (const placeable of tokens) {
+    const doc = (placeable as { document?: SummonTokenDocumentLike }).document;
+    if (doc?.flags?.[MODULE_ID]?.summoner !== trainerId) continue;
+    const actor = (placeable as { actor?: Actor | null }).actor;
+    return {
+      tokenId: doc.id ?? "",
+      actorId: doc.actorId ?? "",
+      name: actor?.name ?? doc.actorId ?? "",
+      img: actor?.img ?? "icons/svg/mystery-man.svg"
+    };
+  }
+  return null;
+}
+
 function resolvePartySlots(partyIds: string[]): PartySlot[] {
   const slots: PartySlot[] = [];
   for (const id of partyIds) {
@@ -608,6 +646,7 @@ export function buildTrainerContext(
   const capacity = INV_COLS * rowCount;
   const inventory = listActorInventory(actor).filter((i) => i.category === filter);
   const shown = inventory;
+  const summon = activeSummon(actor.id ?? "");
   return {
     actorId: actor.id ?? "",
     actorName: actor.name ?? "Unknown",
@@ -640,6 +679,10 @@ export function buildTrainerContext(
     }),
     pokedexReady: hasPokedex(actor),
     pokedexImg: readPokedexItem(actor)?.img ?? null,
+    activePartyId: summon?.actorId ?? null,
+    activePokemonImg: summon?.img ?? null,
+    selectedPartyIndex: null,
+    hasPartySelection: false,
     stats: readStatBreakdown(actor.system)
   };
 }

@@ -70,3 +70,12 @@ Hooks.on("updateToken", (token: TokenDocument, change: unknown) => {
   const actor = token.actor;
   if (actor) void refreshPartyForActor(actor);
 });
+
+// Keep the summon button/party highlight in sync when tokens are added or removed.
+Hooks.on("createToken", () => {
+  if (!isAutoRenderSuppressed()) refreshHud();
+});
+
+Hooks.on("deleteToken", () => {
+  if (!isAutoRenderSuppressed()) refreshHud();
+});

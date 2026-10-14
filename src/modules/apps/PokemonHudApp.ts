@@ -49,6 +49,7 @@ import { isMobileMode } from "../core/mobile";
 import { getSettings } from "../core/settings";
 import { readStatBreakdown } from "../core/stat-breakdown";
 import { d20Formula, rollModeFromKeys, type RollMode } from "../core/roll-mode";
+import { SUMMON_RANGE_FEET, maxSummonCells, summonOffsets } from "../core/summon";
 
 const MODULE_ID = "pokemon-hud-like";
 
@@ -70,7 +71,7 @@ function pokedexSection(label: string, value: string): string {
   );
 }
 
-const POKEDEX_FALLBACK: Record<string, { en: string; es: string }> = {
+const TEXT_FALLBACK: Record<string, { en: string; es: string }> = {
   "pokemon-hud-like.chat.pokedex": {
     en: "{actor} scans {target} with the Pokédex",
     es: "{actor} escanea a {target} con la Pokédex"
@@ -90,13 +91,35 @@ const POKEDEX_FALLBACK: Record<string, { en: string; es: string }> = {
     en: "The scan only revealed the basics (rolled {total}).",
     es: "El escaneo solo reveló lo básico (resultado {total})."
   },
-  "pokemon-hud-like.chat.pokedexUnknown": { en: "—", es: "—" }
+  "pokemon-hud-like.chat.pokedexUnknown": { en: "—", es: "—" },
+  "pokemon-hud-like.hud.summon": { en: "Summon Pokémon", es: "Invocar Pokémon" },
+  "pokemon-hud-like.hud.withdraw": { en: "Withdraw Pokémon", es: "Retirar Pokémon" },
+  "pokemon-hud-like.hud.summonNoSelection": {
+    en: "Select a party Pokémon first.",
+    es: "Selecciona primero un Pokémon del equipo."
+  },
+  "pokemon-hud-like.hud.summonNoSpace": {
+    en: "No free space within 15 ft of the trainer.",
+    es: "No hay espacio libre a 15 pies del entrenador."
+  },
+  "pokemon-hud-like.hud.summonNoToken": {
+    en: "Place the trainer token on the scene first.",
+    es: "Coloca primero el token del entrenador en la escena."
+  },
+  "pokemon-hud-like.hud.summonFailed": {
+    en: "Could not summon the Pokémon.",
+    es: "No se pudo invocar al Pokémon."
+  },
+  "pokemon-hud-like.hud.summonWithdrawFailed": {
+    en: "Could not withdraw the Pokémon.",
+    es: "No se pudo retirar al Pokémon."
+  }
 };
 
 /** Localize a key, falling back to bundled strings when a stale lang file is served. */
 function phText(key: string, data?: Record<string, unknown>): string {
   if (game.i18n.has(key)) return game.i18n.format(key, data);
-  const fallback = POKEDEX_FALLBACK[key];
+  const fallback = TEXT_FALLBACK[key];
   if (!fallback) return key;
   const template = String(game.i18n.lang ?? "en")
     .toLowerCase()
@@ -151,6 +174,39 @@ interface BarRenderOptions
     foundry.applications.api.HandlebarsApplicationMixin.RenderOptions,
     foundry.applications.api.ApplicationV2.RenderOptions {}
 
+interface TokenDocumentLike {
+  id?: string;
+  actorId?: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  hidden?: boolean;
+  delete?: () => Promise<unknown>;
+  flags?: Record<string, Record<string, unknown> | undefined>;
+}
+
+interface TokenPlaceableLike {
+  document?: TokenDocumentLike | null;
+  actor?: Actor | null;
+}
+
+interface GridLike {
+  size?: number;
+  distance?: number;
+  measureDistance?: (a: { x: number; y: number }, b: { x: number; y: number }) => number;
+}
+
+interface SceneLike {
+  createEmbeddedDocuments?: (type: string, data: unknown[]) => Promise<unknown>;
+}
+
+interface CanvasLike {
+  scene?: SceneLike | null;
+  grid?: GridLike | null;
+  tokens?: { placeables?: unknown };
+}
+
 export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicationMixin(
   foundry.applications.api.ApplicationV2
 )<BarRenderContext, BarConfiguration, BarRenderOptions> {
@@ -174,7 +230,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     foundry.applications.api.HandlebarsApplicationMixin.HandlebarsTemplatePart
   > = {
     bar: {
-      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.12.hbs`,
+      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.13.hbs`,
       id: `${MODULE_ID}-bar`,
       root: true
     }
@@ -190,6 +246,8 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
   #diceHideTimer: number | null = null;
 
   #selectedPokeballId: string | null = null;
+
+  #selectedPartyIndex: number | null = null;
 
   #captureTimer: number | null = null;
   #onResizeBound?: () => void;
@@ -240,6 +298,8 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     else if (action === "use-pokemon-slot") void this.#onUsePokemonSlot(button);
     else if (action === "open-sheet") this.#onOpenSheet();
     else if (action === "open-party-sheet") this.#onOpenPartySheet(button);
+    else if (action === "select-party") this.#onSelectParty(button);
+    else if (action === "toggle-summon") void this.#onToggleSummon();
     else if (action === "use-item") void this.#onUseItem(button);
     else if (action === "select-pokeball") this.#onSelectPokeball(button);
     else if (action === "throw-pokeball") void this.#onThrowPokeball();
@@ -254,6 +314,14 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     else if (action === "toggle-stats") this.#onToggleStats();
     else if (action === "roll-ability") void this.#onRollAbility(button, mode);
     else if (action === "roll-skill") void this.#onRollSkill(button, mode);
+  };
+
+  #onDblClick = (event: Event): void => {
+    const slot = (event.target as HTMLElement | null)?.closest<HTMLElement>(
+      ".ph-party-slot[data-actor-id]"
+    );
+    if (!slot || this.#mode !== "trainer") return;
+    this.#onOpenPartySheet(slot);
   };
 
   #onChange = (event: Event): void => {
@@ -315,6 +383,10 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       };
     }
     const ctx = buildHudBarContext(this.#actor, this.#invFilter, this.#invRows);
+    if (ctx.trainer) {
+      ctx.trainer.selectedPartyIndex = this.#selectedPartyIndex;
+      ctx.trainer.hasPartySelection = this.#selectedPartyIndex !== null;
+    }
     return {
       mode: ctx.mode,
       isTrainer: ctx.mode === "trainer",
@@ -355,6 +427,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     }
     try {
       this.element.addEventListener("click", this.#onClick);
+      this.element.addEventListener("dblclick", this.#onDblClick);
       this.element.addEventListener("change", this.#onChange);
       this.element.addEventListener("submit", this.#onSubmit);
       this.element.addEventListener("contextmenu", this.#onContextMenu);
@@ -399,6 +472,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
   async setActor(actor: Actor): Promise<void> {
     this.#actor = actor;
     this.#mode = detectHudMode(actor);
+    this.#selectedPartyIndex = null;
     await this.render({ force: true });
   }
 
@@ -504,6 +578,166 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     const actorId = element.dataset.actorId;
     if (!actorId) return;
     resolvePartyActor(actorId)?.sheet?.render(true);
+  }
+
+  #onSelectParty(element: HTMLElement): void {
+    if (this.#mode !== "trainer") return;
+    const index = Number(element.dataset.partySlot ?? NaN);
+    if (!Number.isInteger(index) || index < 0) return;
+    const actor = this.#actor;
+    if (!actor || !getTrainerFlags(actor).party[index]) return;
+    this.#selectedPartyIndex = index;
+    void this.#patchBar([".ph-party-grid", ".ph-obj-column"]);
+  }
+
+  #canvas(): CanvasLike | null {
+    return (globalThis as unknown as { canvas?: CanvasLike }).canvas ?? null;
+  }
+
+  #sceneTokens(): TokenPlaceableLike[] {
+    const placeables = this.#canvas()?.tokens?.placeables;
+    return Array.isArray(placeables) ? (placeables as TokenPlaceableLike[]) : [];
+  }
+
+  #tokenForActor(actorId: string): TokenPlaceableLike | null {
+    if (!actorId) return null;
+    for (const placeable of this.#sceneTokens()) {
+      if (placeable.document?.actorId === actorId) return placeable;
+    }
+    return null;
+  }
+
+  #summonedToken(trainerId: string): TokenPlaceableLike | null {
+    if (!trainerId) return null;
+    for (const placeable of this.#sceneTokens()) {
+      if (placeable.document?.flags?.[MODULE_ID]?.summoner === trainerId) return placeable;
+    }
+    return null;
+  }
+
+  /** Distance in grid units (feet) between two points, preferring the scene's own measure. */
+  #distanceFeet(
+    grid: GridLike,
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    dx: number,
+    dy: number,
+    cellFeet: number
+  ): number {
+    try {
+      if (typeof grid.measureDistance === "function") {
+        const measured = Number(grid.measureDistance(from, to));
+        if (Number.isFinite(measured)) return measured;
+      }
+    } catch {
+      // fall through to a Chebyshev approximation (dnd5e 5-5-5 diagonals)
+    }
+    return Math.max(Math.abs(dx), Math.abs(dy)) * cellFeet;
+  }
+
+  #cellOccupied(doc: TokenDocumentLike, x: number, y: number, gridSize: number): boolean {
+    const ox = Number(doc.x) || 0;
+    const oy = Number(doc.y) || 0;
+    const width = (Number(doc.width) || 1) * gridSize;
+    const height = (Number(doc.height) || 1) * gridSize;
+    return !(x + gridSize <= ox || x >= ox + width || y + gridSize <= oy || y >= oy + height);
+  }
+
+  async #onToggleSummon(): Promise<void> {
+    const trainer = this.#actor;
+    if (!trainer || this.#mode !== "trainer") return;
+    const existing = this.#summonedToken(trainer.id ?? "");
+    if (existing) {
+      await this.#withdrawSummon(existing);
+      return;
+    }
+    const { party } = getTrainerFlags(trainer);
+    const index = this.#selectedPartyIndex;
+    if (index === null || index < 0 || index >= party.length || !party[index]) {
+      ui.notifications?.warn(phText("pokemon-hud-like.hud.summonNoSelection"));
+      return;
+    }
+    const pokemon = resolvePartyActor(party[index]);
+    if (!pokemon) {
+      ui.notifications?.warn(phText("pokemon-hud-like.hud.summonNoSelection"));
+      return;
+    }
+    await this.#summonPokemon(trainer, pokemon);
+  }
+
+  async #summonPokemon(trainer: Actor, pokemon: Actor): Promise<void> {
+    const canvas = this.#canvas();
+    const scene = canvas?.scene;
+    const grid = canvas?.grid;
+    const create = scene?.createEmbeddedDocuments;
+    const trainerToken = this.#tokenForActor(trainer.id ?? "");
+    const trainerDoc = trainerToken?.document;
+    if (!scene || !grid || !trainerDoc || typeof create !== "function") {
+      ui.notifications?.warn(phText("pokemon-hud-like.hud.summonNoToken"));
+      return;
+    }
+
+    const gridSize = Number(grid.size) > 0 ? Number(grid.size) : 100;
+    const cellFeet = Number(grid.distance) > 0 ? Number(grid.distance) : 5;
+    const maxCells = maxSummonCells(cellFeet);
+    const originX = Number(trainerDoc.x) || 0;
+    const originY = Number(trainerDoc.y) || 0;
+    const trainerCenter = {
+      x: originX + ((Number(trainerDoc.width) || 1) * gridSize) / 2,
+      y: originY + ((Number(trainerDoc.height) || 1) * gridSize) / 2
+    };
+    const placed = this.#sceneTokens()
+      .map((placeable) => placeable.document)
+      .filter((doc): doc is TokenDocumentLike => Boolean(doc));
+
+    const spot = summonOffsets(maxCells).find(({ dx, dy }) => {
+      const x = originX + dx * gridSize;
+      const y = originY + dy * gridSize;
+      const center = { x: x + gridSize / 2, y: y + gridSize / 2 };
+      const feet = this.#distanceFeet(grid, trainerCenter, center, dx, dy, cellFeet);
+      if (!Number.isFinite(feet) || feet > SUMMON_RANGE_FEET) return false;
+      return !placed.some((doc) => this.#cellOccupied(doc, x, y, gridSize));
+    });
+
+    if (!spot) {
+      ui.notifications?.warn(phText("pokemon-hud-like.hud.summonNoSpace"));
+      return;
+    }
+
+    const data = {
+      actorId: pokemon.id,
+      x: originX + spot.dx * gridSize,
+      y: originY + spot.dy * gridSize,
+      flags: { [MODULE_ID]: { summoner: trainer.id } }
+    };
+
+    beginAutoRenderSuppression();
+    try {
+      await create.call(scene, "Token", [data]);
+    } catch (err) {
+      logger.warn(`HUD summon: ${String(err)}`);
+      ui.notifications?.warn(phText("pokemon-hud-like.hud.summonFailed"));
+      return;
+    } finally {
+      endAutoRenderSuppression();
+    }
+    await this.render({ force: true });
+  }
+
+  async #withdrawSummon(token: TokenPlaceableLike): Promise<void> {
+    const doc = token.document;
+    if (!doc || typeof doc.delete !== "function") return;
+    beginAutoRenderSuppression();
+    try {
+      await doc.delete();
+    } catch (err) {
+      logger.warn(`HUD withdraw: ${String(err)}`);
+      ui.notifications?.warn(phText("pokemon-hud-like.hud.summonWithdrawFailed"));
+      return;
+    } finally {
+      endAutoRenderSuppression();
+    }
+    await this.render({ force: true });
   }
 
   async #onUseItem(element: HTMLElement): Promise<void> {
@@ -1316,6 +1550,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       const party = getTrainerFlags(actor).party;
       if (index < 0 || index >= party.length || !party[index]) return;
       event.preventDefault();
+      this.#selectedPartyIndex = null;
       void this.#mutateAndPatch(removePartySlot(actor, index), [".ph-party-grid"]);
       return;
     }
@@ -1543,6 +1778,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       const cur = getTrainerFlags(this.#actor).party.filter((p) => p !== id);
       const insertAt = Math.min(index, cur.length);
       cur.splice(insertAt, 0, id);
+      this.#selectedPartyIndex = null;
       await this.#mutateAndPatch(setParty(this.#actor, cur.slice(0, 6)), [".ph-party-grid"]);
       return;
     }

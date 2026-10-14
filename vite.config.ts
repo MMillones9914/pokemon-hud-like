@@ -13,8 +13,8 @@ export default defineConfig({
     lib: {
       entry: path.resolve(dirname, "src/index.ts"),
       formats: ["es"],
-      fileName: () => "module/pokemon-hud-like-0.1.12.mjs",
-      cssFileName: "module/pokemon-hud-like-0.1.12"
+      fileName: () => "module/pokemon-hud-like-0.1.13.mjs",
+      cssFileName: "module/pokemon-hud-like-0.1.13"
     },
     rollupOptions: {
       output: {
