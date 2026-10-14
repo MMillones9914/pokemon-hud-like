@@ -44,6 +44,8 @@
       "withdraw": "Withdraw Pokémon",
       "summonNoSelection": "Select a party Pokémon first.",
       "summonNoSpace": "No free space within 15 ft of the trainer.",
+      "summonPick": "Click a free space within 15 ft to summon. Right-click or Escape to cancel.",
+      "summonTooFar": "The Pokémon must be summoned within 15 ft of the trainer.",
       "summonNoToken": "Place the trainer token on the scene first.",
       "summonFailed": "Could not summon the Pokémon.",
       "summonWithdrawFailed": "Could not withdraw the Pokémon.",

@@ -102,6 +102,14 @@ const TEXT_FALLBACK: Record<string, { en: string; es: string }> = {
     en: "No free space within 15 ft of the trainer.",
     es: "No hay espacio libre a 15 pies del entrenador."
   },
+  "pokemon-hud-like.hud.summonPick": {
+    en: "Click a free space within 15 ft to summon. Right-click or Escape to cancel.",
+    es: "Haz clic en un espacio libre a 15 pies para invocar. Clic derecho o Escape para cancelar."
+  },
+  "pokemon-hud-like.hud.summonTooFar": {
+    en: "The Pokémon must be summoned within 15 ft of the trainer.",
+    es: "El Pokémon debe invocarse a 15 pies o menos del entrenador."
+  },
   "pokemon-hud-like.hud.summonNoToken": {
     en: "Place the trainer token on the scene first.",
     es: "Coloca primero el token del entrenador en la escena."
@@ -184,6 +192,7 @@ interface TokenDocumentLike {
   hidden?: boolean;
   delete?: () => Promise<unknown>;
   flags?: Record<string, Record<string, unknown> | undefined>;
+  toObject?: () => Record<string, unknown>;
 }
 
 interface TokenPlaceableLike {
@@ -194,17 +203,38 @@ interface TokenPlaceableLike {
 interface GridLike {
   size?: number;
   distance?: number;
-  measureDistance?: (a: { x: number; y: number }, b: { x: number; y: number }) => number;
+  measurePath?: (waypoints: { x: number; y: number }[]) => { distance?: number } | undefined;
 }
 
 interface SceneLike {
-  createEmbeddedDocuments?: (type: string, data: unknown[]) => Promise<unknown>;
+  createEmbeddedDocuments?: (
+    type: string,
+    data: unknown[],
+    options?: Record<string, unknown>
+  ) => Promise<unknown>;
+}
+
+interface TokenLayerLike {
+  placeables?: unknown;
+  placeTokens?: (data: unknown[], options?: Record<string, unknown>) => Promise<unknown>;
+  _cancelPlacement?: () => void;
 }
 
 interface CanvasLike {
+  ready?: boolean;
   scene?: SceneLike | null;
   grid?: GridLike | null;
-  tokens?: { placeables?: unknown };
+  tokens?: TokenLayerLike;
+}
+
+/** Actor surface used to build a summon Token document from its prototype Token. */
+interface SummonActorLike {
+  isOwner?: boolean;
+  getTokenDocument?: (data?: object, options?: object) => Promise<TokenDocumentLike>;
+}
+
+interface PlacementConfirmArgs {
+  document: TokenDocumentLike;
 }
 
 export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicationMixin(
@@ -230,7 +260,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     foundry.applications.api.HandlebarsApplicationMixin.HandlebarsTemplatePart
   > = {
     bar: {
-      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.13.hbs`,
+      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.14.hbs`,
       id: `${MODULE_ID}-bar`,
       root: true
     }
@@ -248,6 +278,9 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
   #selectedPokeballId: string | null = null;
 
   #selectedPartyIndex: number | null = null;
+
+  /** True while Foundry's own token placement workflow is waiting for a click. */
+  #placingSummon = false;
 
   #captureTimer: number | null = null;
   #onResizeBound?: () => void;
@@ -459,6 +492,10 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
   }
 
   override _onClose(options: DeepPartial<BarRenderOptions>): void {
+    if (this.#placingSummon) {
+      this.#placingSummon = false;
+      this.#canvas()?.tokens?._cancelPlacement?.();
+    }
     if (this.#diceHideTimer !== null) {
       window.clearTimeout(this.#diceHideTimer);
       this.#diceHideTimer = null;
@@ -620,19 +657,27 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     grid: GridLike,
     from: { x: number; y: number },
     to: { x: number; y: number },
-    dx: number,
-    dy: number,
-    cellFeet: number
+    cellFeet: number,
+    gridSize: number
   ): number {
     try {
-      if (typeof grid.measureDistance === "function") {
-        const measured = Number(grid.measureDistance(from, to));
+      if (typeof grid.measurePath === "function") {
+        const measured = Number(grid.measurePath([from, to])?.distance);
         if (Number.isFinite(measured)) return measured;
       }
     } catch {
       // fall through to a Chebyshev approximation (dnd5e 5-5-5 diagonals)
     }
-    return Math.max(Math.abs(dx), Math.abs(dy)) * cellFeet;
+    const cells = Math.max(Math.abs(from.x - to.x), Math.abs(from.y - to.y)) / gridSize;
+    return cells * cellFeet;
+  }
+
+  /** Center of a token document in canvas coordinates. */
+  #docCenter(doc: TokenDocumentLike, gridSize: number): { x: number; y: number } {
+    return {
+      x: (Number(doc.x) || 0) + ((Number(doc.width) || 1) * gridSize) / 2,
+      y: (Number(doc.y) || 0) + ((Number(doc.height) || 1) * gridSize) / 2
+    };
   }
 
   #cellOccupied(doc: TokenDocumentLike, x: number, y: number, gridSize: number): boolean {
@@ -643,9 +688,39 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     return !(x + gridSize <= ox || x >= ox + width || y + gridSize <= oy || y >= oy + height);
   }
 
+  /** Build the Token data from the actor's prototype Token so the summon keeps the
+      Pokémon's own token art, size and disposition: creating a Token with only an
+      actorId yields the default placeholder art instead. */
+  async #summonTokenData(
+    pokemon: Actor,
+    trainerId: string
+  ): Promise<Record<string, unknown> | null> {
+    const getTokenDocument = (pokemon as unknown as SummonActorLike).getTokenDocument;
+    if (typeof getTokenDocument !== "function") return null;
+    const scene = this.#canvas()?.scene;
+    let doc: TokenDocumentLike | null;
+    try {
+      doc = await getTokenDocument.call(pokemon, {}, scene ? { parent: scene } : {});
+    } catch (err) {
+      logger.warn(`HUD summon document: ${String(err)}`);
+      return null;
+    }
+    if (!doc || typeof doc.toObject !== "function") return null;
+    const data = doc.toObject();
+    delete data._id;
+    const flags = (data.flags as Record<string, Record<string, unknown>> | undefined) ?? {};
+    flags[MODULE_ID] = { ...(flags[MODULE_ID] ?? {}), summoner: trainerId };
+    data.flags = flags;
+    return data;
+  }
+
   async #onToggleSummon(): Promise<void> {
     const trainer = this.#actor;
     if (!trainer || this.#mode !== "trainer") return;
+    if (this.#placingSummon) {
+      this.#canvas()?.tokens?._cancelPlacement?.();
+      return;
+    }
     const existing = this.#summonedToken(trainer.id ?? "");
     if (existing) {
       await this.#withdrawSummon(existing);
@@ -669,32 +744,103 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     const canvas = this.#canvas();
     const scene = canvas?.scene;
     const grid = canvas?.grid;
-    const create = scene?.createEmbeddedDocuments;
-    const trainerToken = this.#tokenForActor(trainer.id ?? "");
-    const trainerDoc = trainerToken?.document;
-    if (!scene || !grid || !trainerDoc || typeof create !== "function") {
+    const trainerDoc = this.#tokenForActor(trainer.id ?? "")?.document;
+    if (!scene || !grid || !trainerDoc) {
       ui.notifications?.warn(phText("pokemon-hud-like.hud.summonNoToken"));
+      return;
+    }
+
+    const data = await this.#summonTokenData(pokemon, trainer.id ?? "");
+    if (!data) {
+      ui.notifications?.warn(phText("pokemon-hud-like.hud.summonFailed"));
       return;
     }
 
     const gridSize = Number(grid.size) > 0 ? Number(grid.size) : 100;
     const cellFeet = Number(grid.distance) > 0 ? Number(grid.distance) : 5;
-    const maxCells = maxSummonCells(cellFeet);
+
+    if (await this.#placeSummon(canvas, pokemon, trainerDoc, data, grid, gridSize)) return;
+    await this.#autoPlaceSummon(scene, trainerDoc, data, grid, gridSize, cellFeet);
+  }
+
+  /** Hand placement to Foundry's own workflow so the player picks the cell; every
+      click further than the summon range from the trainer is refused. */
+  async #placeSummon(
+    canvas: CanvasLike,
+    pokemon: Actor,
+    trainerDoc: TokenDocumentLike,
+    data: Record<string, unknown>,
+    grid: GridLike,
+    gridSize: number
+  ): Promise<boolean> {
+    const placeTokens = canvas.tokens?.placeTokens;
+    if (canvas.ready !== true || typeof placeTokens !== "function") return false;
+    // Foundry's placement workflow refuses Token documents the user does not own.
+    if ((pokemon as unknown as SummonActorLike).isOwner === false) return false;
+
+    const cellFeet = Number(grid.distance) > 0 ? Number(grid.distance) : 5;
+    const inRange = (target: TokenDocumentLike): boolean => {
+      const feet = this.#distanceFeet(
+        grid,
+        this.#docCenter(trainerDoc, gridSize),
+        this.#docCenter(target, gridSize),
+        cellFeet,
+        gridSize
+      );
+      return !Number.isFinite(feet) || feet <= SUMMON_RANGE_FEET;
+    };
+
+    ui.notifications?.info(phText("pokemon-hud-like.hud.summonPick"));
+    this.#placingSummon = true;
+    beginAutoRenderSuppression();
+    try {
+      await placeTokens.call(canvas.tokens, [data], {
+        createOptions: { controlObject: false },
+        preConfirm: ({ document: target }: PlacementConfirmArgs) => {
+          if (inRange(target)) return true;
+          ui.notifications?.warn(phText("pokemon-hud-like.hud.summonTooFar"));
+          return false;
+        }
+      });
+    } catch (err) {
+      logger.warn(`HUD summon: ${String(err)}`);
+      ui.notifications?.warn(phText("pokemon-hud-like.hud.summonFailed"));
+    } finally {
+      this.#placingSummon = false;
+      endAutoRenderSuppression();
+    }
+    if (this.rendered) await this.render({ force: true });
+    return true;
+  }
+
+  /** Fallback for canvases without a placement workflow: drop the Pokémon on the
+      nearest free cell inside the summon range. */
+  async #autoPlaceSummon(
+    scene: SceneLike,
+    trainerDoc: TokenDocumentLike,
+    data: Record<string, unknown>,
+    grid: GridLike,
+    gridSize: number,
+    cellFeet: number
+  ): Promise<void> {
+    const create = scene.createEmbeddedDocuments;
+    if (typeof create !== "function") {
+      ui.notifications?.warn(phText("pokemon-hud-like.hud.summonNoToken"));
+      return;
+    }
+
     const originX = Number(trainerDoc.x) || 0;
     const originY = Number(trainerDoc.y) || 0;
-    const trainerCenter = {
-      x: originX + ((Number(trainerDoc.width) || 1) * gridSize) / 2,
-      y: originY + ((Number(trainerDoc.height) || 1) * gridSize) / 2
-    };
+    const trainerCenter = this.#docCenter(trainerDoc, gridSize);
     const placed = this.#sceneTokens()
       .map((placeable) => placeable.document)
       .filter((doc): doc is TokenDocumentLike => Boolean(doc));
 
-    const spot = summonOffsets(maxCells).find(({ dx, dy }) => {
+    const spot = summonOffsets(maxSummonCells(cellFeet)).find(({ dx, dy }) => {
       const x = originX + dx * gridSize;
       const y = originY + dy * gridSize;
       const center = { x: x + gridSize / 2, y: y + gridSize / 2 };
-      const feet = this.#distanceFeet(grid, trainerCenter, center, dx, dy, cellFeet);
+      const feet = this.#distanceFeet(grid, trainerCenter, center, cellFeet, gridSize);
       if (!Number.isFinite(feet) || feet > SUMMON_RANGE_FEET) return false;
       return !placed.some((doc) => this.#cellOccupied(doc, x, y, gridSize));
     });
@@ -704,16 +850,11 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       return;
     }
 
-    const data = {
-      actorId: pokemon.id,
-      x: originX + spot.dx * gridSize,
-      y: originY + spot.dy * gridSize,
-      flags: { [MODULE_ID]: { summoner: trainer.id } }
-    };
-
     beginAutoRenderSuppression();
     try {
-      await create.call(scene, "Token", [data]);
+      await create.call(scene, "Token", [
+        { ...data, x: originX + spot.dx * gridSize, y: originY + spot.dy * gridSize }
+      ]);
     } catch (err) {
       logger.warn(`HUD summon: ${String(err)}`);
       ui.notifications?.warn(phText("pokemon-hud-like.hud.summonFailed"));
@@ -721,7 +862,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     } finally {
       endAutoRenderSuppression();
     }
-    await this.render({ force: true });
+    if (this.rendered) await this.render({ force: true });
   }
 
   async #withdrawSummon(token: TokenPlaceableLike): Promise<void> {

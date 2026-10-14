@@ -824,23 +824,12 @@ body.swipe-vtt:not(.swipe-vtt-foundry-ui) [class*="pokemon-hud-like"][class*="ph
 }
 .ph-party-slot--selected {
   border-color: var(--ph-hud-accent);
-  background: rgba(238, 21, 21, 0.14);
-  box-shadow:
-    0 0 0 1px var(--ph-hud-accent),
-    0 0 8px rgba(238, 21, 21, 0.45);
 }
 .ph-party-slot--active {
   border-color: var(--ph-border-glow);
-  background: rgba(230, 200, 120, 0.14);
-  box-shadow:
-    0 0 0 1px var(--ph-border-glow),
-    0 0 10px rgba(230, 200, 120, 0.5);
 }
 .ph-party-slot--active.ph-party-slot--selected {
   border-color: var(--ph-hud-accent);
-  box-shadow:
-    0 0 0 1px var(--ph-hud-accent),
-    0 0 10px rgba(238, 21, 21, 0.55);
 }
 .ph-obj-column {
   flex-shrink: 0;

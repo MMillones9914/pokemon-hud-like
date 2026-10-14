@@ -44,6 +44,8 @@
       "withdraw": "Retirar Pokémon",
       "summonNoSelection": "Selecciona primero un Pokémon del equipo.",
       "summonNoSpace": "No hay espacio libre a 15 pies del entrenador.",
+      "summonPick": "Haz clic en un espacio libre a 15 pies para invocar. Clic derecho o Escape para cancelar.",
+      "summonTooFar": "El Pokémon debe invocarse a 15 pies o menos del entrenador.",
       "summonNoToken": "Coloca primero el token del entrenador en la escena.",
       "summonFailed": "No se pudo invocar al Pokémon.",
       "summonWithdrawFailed": "No se pudo retirar al Pokémon.",
