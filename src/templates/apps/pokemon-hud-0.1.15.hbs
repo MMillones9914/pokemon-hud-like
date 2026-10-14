@@ -139,7 +139,7 @@
         <label class="ph-section-label" data-tooltip="pokemon-hud-like.hud.partyHint">{{localize "pokemon-hud-like.hud.party"}}</label>
         <div class="ph-party-grid">
           {{#each this.party}}
-          <div class="ph-party-slot{{#if (eq this.actorId ../activePartyId)}} ph-party-slot--active{{/if}}{{#if (eq @index ../selectedPartyIndex)}} ph-party-slot--selected{{/if}}"
+          <div class="ph-party-slot{{#if (eq @index ../selectedPartyIndex)}} ph-party-slot--selected{{/if}}"
                data-party-slot="{{@index}}" data-actor-id="{{this.actorId}}"
                data-tooltip="{{this.name}}" data-action="select-party" draggable="true">
             <img class="ph-party-img" src="{{this.img}}" alt="{{this.name}}" />

@@ -1,6 +1,6 @@
 {
   "name": "pokemon-hud-like",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "Pokémon HUD-like module for Foundry VTT v14",
   "type": "module",
   "private": true,

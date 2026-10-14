@@ -10,6 +10,7 @@ import { initHudSocket } from "./modules/net/socket";
 import {
   hideHud,
   isAutoRenderSuppressed,
+  isSummonPlacementActive,
   refreshHud,
   refreshPartyForActor,
   showHud,
@@ -47,6 +48,9 @@ Hooks.on("controlToken", (token: Token, controlled: boolean) => {
     return;
   }
   if (!controlled) {
+    // Summon placement releases every controlled token; keep the HUD up until
+    // the player either places the Pokémon or cancels.
+    if (isSummonPlacementActive()) return;
     const remaining = ((canvas?.tokens?.controlled ?? []) as Token[]).length;
     if (remaining === 0) void hideHud();
   }

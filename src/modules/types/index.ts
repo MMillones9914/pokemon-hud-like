@@ -171,8 +171,6 @@ export interface TrainerHudContext {
   pokedexReady: boolean;
   pokedexImg: string | null;
 
-  activePartyId: string | null;
-
   activePokemonImg: string | null;
 
   selectedPartyIndex: number | null;

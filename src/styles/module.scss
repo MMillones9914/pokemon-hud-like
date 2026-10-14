@@ -812,10 +812,7 @@ body.swipe-vtt:not(.swipe-vtt-foundry-ui) [class*="pokemon-hud-like"][class*="ph
   padding: 3px 5px;
   box-sizing: border-box;
   min-width: 0;
-  transition:
-    border-color var(--ph-transition-fast),
-    box-shadow var(--ph-transition-fast),
-    background var(--ph-transition-fast);
+  transition: border-color var(--ph-transition-fast);
 }
 .ph-party-slot--empty {
   border-style: dashed;
@@ -823,13 +820,7 @@ body.swipe-vtt:not(.swipe-vtt-foundry-ui) [class*="pokemon-hud-like"][class*="ph
   justify-content: center;
 }
 .ph-party-slot--selected {
-  border-color: var(--ph-hud-accent);
-}
-.ph-party-slot--active {
-  border-color: var(--ph-border-glow);
-}
-.ph-party-slot--active.ph-party-slot--selected {
-  border-color: var(--ph-hud-accent);
+  border-color: #fff;
 }
 .ph-obj-column {
   flex-shrink: 0;

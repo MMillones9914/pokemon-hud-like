@@ -198,6 +198,8 @@ interface TokenDocumentLike {
 interface TokenPlaceableLike {
   document?: TokenDocumentLike | null;
   actor?: Actor | null;
+  controlled?: boolean;
+  control?: (options?: Record<string, unknown>) => unknown;
 }
 
 interface GridLike {
@@ -260,7 +262,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     foundry.applications.api.HandlebarsApplicationMixin.HandlebarsTemplatePart
   > = {
     bar: {
-      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.14.hbs`,
+      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.15.hbs`,
       id: `${MODULE_ID}-bar`,
       root: true
     }
@@ -385,6 +387,11 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     return this.#mode;
   }
 
+  /** True while Foundry's token placement workflow is waiting for a click. */
+  get placingSummon(): boolean {
+    return this.#placingSummon;
+  }
+
   async refreshParty(): Promise<void> {
     if (!this.#actor || this.#mode !== "trainer") return;
     await this.#patchBar([".ph-party-grid"]);
@@ -507,9 +514,10 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
   }
 
   async setActor(actor: Actor): Promise<void> {
+    const changed = this.#actor?.id !== actor.id;
     this.#actor = actor;
     this.#mode = detectHudMode(actor);
-    this.#selectedPartyIndex = null;
+    if (changed) this.#selectedPartyIndex = null;
     await this.render({ force: true });
   }
 
@@ -744,8 +752,8 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     const canvas = this.#canvas();
     const scene = canvas?.scene;
     const grid = canvas?.grid;
-    const trainerDoc = this.#tokenForActor(trainer.id ?? "")?.document;
-    if (!scene || !grid || !trainerDoc) {
+    const trainerToken = this.#tokenForActor(trainer.id ?? "");
+    if (!scene || !grid || !trainerToken?.document) {
       ui.notifications?.warn(phText("pokemon-hud-like.hud.summonNoToken"));
       return;
     }
@@ -759,8 +767,8 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     const gridSize = Number(grid.size) > 0 ? Number(grid.size) : 100;
     const cellFeet = Number(grid.distance) > 0 ? Number(grid.distance) : 5;
 
-    if (await this.#placeSummon(canvas, pokemon, trainerDoc, data, grid, gridSize)) return;
-    await this.#autoPlaceSummon(scene, trainerDoc, data, grid, gridSize, cellFeet);
+    if (await this.#placeSummon(canvas, pokemon, trainerToken, data, grid, gridSize)) return;
+    await this.#autoPlaceSummon(scene, trainerToken.document, data, grid, gridSize, cellFeet);
   }
 
   /** Hand placement to Foundry's own workflow so the player picks the cell; every
@@ -768,13 +776,14 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
   async #placeSummon(
     canvas: CanvasLike,
     pokemon: Actor,
-    trainerDoc: TokenDocumentLike,
+    trainerToken: TokenPlaceableLike,
     data: Record<string, unknown>,
     grid: GridLike,
     gridSize: number
   ): Promise<boolean> {
     const placeTokens = canvas.tokens?.placeTokens;
-    if (canvas.ready !== true || typeof placeTokens !== "function") return false;
+    const trainerDoc = trainerToken.document;
+    if (canvas.ready !== true || typeof placeTokens !== "function" || !trainerDoc) return false;
     // Foundry's placement workflow refuses Token documents the user does not own.
     if ((pokemon as unknown as SummonActorLike).isOwner === false) return false;
 
@@ -809,8 +818,20 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       this.#placingSummon = false;
       endAutoRenderSuppression();
     }
+    // The placement workflow releases every controlled token: give control back to
+    // the trainer so the HUD and the canvas selection survive the summon.
+    this.#restoreTrainerControl(trainerToken);
     if (this.rendered) await this.render({ force: true });
     return true;
+  }
+
+  #restoreTrainerControl(token: TokenPlaceableLike): void {
+    if (token.controlled) return;
+    try {
+      token.control?.({ releaseOthers: false });
+    } catch (err) {
+      logger.warn(`HUD summon control: ${String(err)}`);
+    }
   }
 
   /** Fallback for canvases without a placement workflow: drop the Pokémon on the
@@ -2090,6 +2111,12 @@ let activeInstance: PokemonHudApp | null = null;
 
 export function visibleActor(): Actor | null {
   return activeInstance?.currentActor ?? null;
+}
+
+/** True while a summon placement awaits a click. Foundry's placement workflow
+    releases every controlled token, and the HUD must survive that release. */
+export function isSummonPlacementActive(): boolean {
+  return activeInstance?.placingSummon ?? false;
 }
 
 export async function refreshPartyForActor(actor: Actor): Promise<void> {

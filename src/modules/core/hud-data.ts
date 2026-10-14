@@ -679,7 +679,6 @@ export function buildTrainerContext(
     }),
     pokedexReady: hasPokedex(actor),
     pokedexImg: readPokedexItem(actor)?.img ?? null,
-    activePartyId: summon?.actorId ?? null,
     activePokemonImg: summon?.img ?? null,
     selectedPartyIndex: null,
     hasPartySelection: false,
