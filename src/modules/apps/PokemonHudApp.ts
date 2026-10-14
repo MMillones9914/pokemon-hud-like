@@ -262,7 +262,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     foundry.applications.api.HandlebarsApplicationMixin.HandlebarsTemplatePart
   > = {
     bar: {
-      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.15.hbs`,
+      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.16.hbs`,
       id: `${MODULE_ID}-bar`,
       root: true
     }
@@ -716,6 +716,11 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     if (!doc || typeof doc.toObject !== "function") return null;
     const data = doc.toObject();
     delete data._id;
+    // The summoned Token MUST be linked to the real Pokemon Actor: an unlinked Token
+    // keeps HP/status changes in its own ActorDelta, which is discarded on withdraw,
+    // silently healing the Pokemon back to full.
+    delete data.delta;
+    data.actorLink = true;
     const flags = (data.flags as Record<string, Record<string, unknown>> | undefined) ?? {};
     flags[MODULE_ID] = { ...(flags[MODULE_ID] ?? {}), summoner: trainerId };
     data.flags = flags;
