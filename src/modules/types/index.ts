@@ -51,6 +51,9 @@ export interface InventoryItemView extends InventoryItem {
   id: string;
 
   tooltipHtml: string;
+
+  /** Extra classes for Foundry's tooltip element (system rich preview). */
+  tooltipClass: string;
 }
 
 export type InventoryCategory = "pokeball" | "object" | "key" | "tm" | "feature";

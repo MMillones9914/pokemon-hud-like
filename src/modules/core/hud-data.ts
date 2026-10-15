@@ -170,7 +170,8 @@ export function listActorInventory(actor: Actor): InventoryItemView[] {
       return {
         ...data,
         id: typeof item.id === "string" ? item.id : "",
-        tooltipHtml: buildInventoryTooltip(data)
+        tooltipHtml: buildInventoryTooltip(data),
+        tooltipClass: ""
       };
     });
 }

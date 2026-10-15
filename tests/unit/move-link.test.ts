@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { readMoveUses, resolvePowerItem, embeddedItemIdFor } from "../../src/modules/core/move-link";
+import {
+  readMoveUses,
+  resolvePowerItem,
+  embeddedItemIdFor
+} from "../../src/modules/core/move-link";
 
 describe("readMoveUses", () => {
   it("reads a dnd5e-style value/max pair", () => {

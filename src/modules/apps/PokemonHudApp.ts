@@ -1,5 +1,12 @@
 import type { DeepPartial } from "fvtt-types/utils";
-import type { HudBarContext, HudMode, InventoryCategory, PowerData, PowerSlotView } from "../types";
+import type {
+  HudBarContext,
+  HudMode,
+  InventoryCategory,
+  InventoryItemView,
+  PowerData,
+  PowerSlotView
+} from "../types";
 import {
   addActorItemFromSource,
   addBadge,
@@ -54,6 +61,7 @@ import {
   type LinkedItemLike
 } from "../core/move-link";
 import { loadMovePreview, movePreviewKey } from "../data/move-preview";
+import { patchChildren } from "../core/dom-patch";
 import { isMobileMode } from "../core/mobile";
 import { getSettings } from "../core/settings";
 import { readStatBreakdown } from "../core/stat-breakdown";
@@ -64,6 +72,20 @@ const MODULE_ID = "pokemon-hud-like";
 
 /** Drag payload type used to tell an internal power reorder from an item drop. */
 const POWER_DRAG_TYPE = "application/x-pokemon-hud-power";
+
+/** Foundry's Handlebars renderer, used to build the bar off-DOM for in-place patching. */
+function renderBarTemplate(path: string, data: unknown): Promise<string> | null {
+  const render = (
+    globalThis as {
+      foundry?: {
+        applications?: {
+          handlebars?: { renderTemplate?: (p: string, d: unknown) => Promise<string> };
+        };
+      };
+    }
+  ).foundry?.applications?.handlebars?.renderTemplate;
+  return typeof render === "function" ? render(path, data) : null;
+}
 
 function escapePokedexHtml(value: string): string {
   return value
@@ -274,7 +296,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     foundry.applications.api.HandlebarsApplicationMixin.HandlebarsTemplatePart
   > = {
     bar: {
-      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.17.hbs`,
+      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.18.hbs`,
       id: `${MODULE_ID}-bar`,
       root: true
     }
@@ -383,7 +405,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     const raw = Number(input.value);
     const value = Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
     input.value = String(value);
-    void this.#mutateAndRender(setPokemonXp(actor, value));
+    void this.#mutateAndPatch(setPokemonXp(actor, value));
   };
 
   #onSubmit = (event: Event): void => {
@@ -442,6 +464,9 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       ctx.trainer.selectedPartyIndex = this.#selectedPartyIndex;
       ctx.trainer.hasPartySelection = this.#selectedPartyIndex !== null;
     }
+    if (ctx.trainer && this.#actor) {
+      await this.#applyInventoryPreviews(this.#actor, ctx.trainer.inventory);
+    }
     if (ctx.pokemon) await this.#applyMovePreviews(ctx.pokemon.powerSlots);
     return {
       mode: ctx.mode,
@@ -467,14 +492,37 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       slots.map(async (slot) => {
         const power = slot.power;
         if (!power) return;
-        const key = movePreviewKey(actor.id, power);
-        if (!key) return;
-        const preview = await loadMovePreview(key, resolvePowerItem(actor, power));
+        const preview = await this.#richPreview(actor, power);
         if (!preview) return;
-        power.tooltipHtml = attrEscape(preview.html);
-        power.tooltipClass = preview.classes.join(" ");
+        power.tooltipHtml = preview.html;
+        power.tooltipClass = preview.classes;
       })
     );
+  }
+
+  /** Inventory slots are the actor's real Items: show Foundry's own item card so
+      every property (description, activities, uses, …) is visible on hover. */
+  async #applyInventoryPreviews(actor: Actor, items: InventoryItemView[]): Promise<void> {
+    await Promise.all(
+      items.map(async (item) => {
+        const preview = await this.#richPreview(actor, { itemId: item.id, uuid: item.uuid });
+        if (!preview) return;
+        item.tooltipHtml = preview.html;
+        item.tooltipClass = preview.classes;
+      })
+    );
+  }
+
+  /** Resolves an item link to its rich tooltip, escaped for a double-quoted attribute. */
+  async #richPreview(
+    actor: Actor,
+    ref: { itemId?: string; uuid?: string }
+  ): Promise<{ html: string; classes: string } | null> {
+    const key = movePreviewKey(actor.id, ref);
+    if (!key) return null;
+    const preview = await loadMovePreview(key, resolvePowerItem(actor, ref));
+    if (!preview) return null;
+    return { html: attrEscape(preview.html), classes: preview.classes.join(" ") };
   }
 
   override render(options?: DeepPartial<BarRenderOptions>): Promise<this>;
@@ -524,11 +572,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
   ): Promise<void> {
     try {
       await super._onRender(_context, _options);
-      this.#applyThemeClass();
-      this.#applyBarState();
-      applyMacroBarPreference();
-      this.#positionBar();
-      this.#repositionAfterRender();
+      this.#applyRenderEffects();
     } catch (err) {
       this.#handleError("_onRender", err);
     }
@@ -554,7 +598,8 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     this.#actor = actor;
     this.#mode = detectHudMode(actor);
     if (changed) this.#selectedPartyIndex = null;
-    await this.render({ force: true });
+    if (this.rendered) await this.#patchBar([]);
+    else await this.render({ force: true });
   }
 
   async clearActor(): Promise<void> {
@@ -862,7 +907,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     // The placement workflow releases every controlled token: give control back to
     // the trainer so the HUD and the canvas selection survive the summon.
     this.#restoreTrainerControl(trainerToken);
-    if (this.rendered) await this.render({ force: true });
+    if (this.rendered) await this.#patchBar([]);
     return true;
   }
 
@@ -924,7 +969,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     } finally {
       endAutoRenderSuppression();
     }
-    if (this.rendered) await this.render({ force: true });
+    if (this.rendered) await this.#patchBar([]);
   }
 
   async #withdrawSummon(token: TokenPlaceableLike): Promise<void> {
@@ -940,7 +985,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     } finally {
       endAutoRenderSuppression();
     }
-    await this.render({ force: true });
+    await this.#patchBar([]);
   }
 
   async #onUseItem(element: HTMLElement): Promise<void> {
@@ -1257,8 +1302,8 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       await this.#postPowerToChat(power, actor);
     }
     // A move that mirrors an item keeps its charges there — never mirror them here.
-    if (before || after) await this.#mutateAndRender(Promise.resolve());
-    else await this.#mutateAndRender(updatePower(actor, index, { pp: Math.max(0, power.pp - 1) }));
+    if (before || after) await this.#mutateAndPatch(Promise.resolve());
+    else await this.#mutateAndPatch(updatePower(actor, index, { pp: Math.max(0, power.pp - 1) }));
   }
 
   async #postPowerToChat(power: PowerData, actor: Actor): Promise<void> {
@@ -1289,7 +1334,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     }
     const doc = await this.#activateByUuid(slot.uuid, slot.name);
     if (key === "equipado" && doc) {
-      await this.#mutateAndRender(this.#consumeEquipado(doc));
+      await this.#mutateAndPatch(this.#consumeEquipado(doc));
     }
   }
 
@@ -1425,58 +1470,84 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     if (enlarge) enlarge.disabled = this.#invRows >= INV_ROWS_MAX;
   }
 
-  /** Swap only the given sections instead of a full render: an AppV2 re-render
-      repaints the whole bar and makes it flicker. */
+  /** Update the bar in place, touching only the nodes that actually changed. A
+      full AppV2 render repaints the whole bar (reloading the menu background and
+      every image), which makes it flicker, so `selectors` are only a fallback for
+      when the bar cannot be diffed (e.g. its mode changed). */
   async #patchBar(selectors: string[]): Promise<void> {
-    const renderTemplate = (
-      foundry as unknown as {
-        applications?: {
-          handlebars?: { renderTemplate?: (path: string, data: unknown) => Promise<string> };
-        };
-      }
-    ).applications?.handlebars?.renderTemplate as
-      ((path: string, data: unknown) => Promise<string>) | undefined;
-    if (!renderTemplate) {
+    if (await this.#patchBarInPlace()) return;
+
+    const html = await renderBarTemplate(
+      PokemonHudApp.PARTS.bar.template,
+      await this._prepareContext({ isFirstRender: false })
+    );
+    if (!html || selectors.length === 0) {
       await this.render({ force: true });
       return;
     }
-    const context = (await this._prepareContext({ isFirstRender: false })) as unknown as Record<
-      string,
-      unknown
-    >;
-    const html = await renderTemplate(PokemonHudApp.PARTS.bar.template, context);
     const parsed = new DOMParser().parseFromString(html, "text/html");
     for (const selector of selectors) {
       const fresh = parsed.querySelector(selector);
       const live = this.element.querySelector(selector);
       if (fresh && live) live.replaceChildren(...Array.from(fresh.childNodes));
     }
-    this.#positionBar();
+    this.#applyRenderEffects();
   }
 
-  /** Mutate a flag then patch the affected sections, suppressing the external
-      updateActor full render so the bar never flashes. */
-  async #mutateAndPatch(mutator: Promise<unknown>, selectors: string[]): Promise<void> {
+  /** Renders the bar off-DOM and diffs it into the live element. Returns false
+      when it cannot (not rendered, or no Handlebars renderer available). */
+  async #patchBarInPlace(): Promise<boolean> {
+    if (!this.rendered || !this.element?.isConnected) return false;
+    let html: string | null;
+    try {
+      html = await renderBarTemplate(
+        PokemonHudApp.PARTS.bar.template,
+        await this._prepareContext({ isFirstRender: false })
+      );
+    } catch (err) {
+      logger.warn(`HUD patch: ${String(err)}`);
+      return false;
+    }
+    if (!html) return false;
+    const freshRoot = new DOMParser().parseFromString(html, "text/html").body.firstElementChild;
+    if (!freshRoot) return false;
+    patchChildren(this.element, freshRoot);
+    this.#applyRenderEffects();
+    return true;
+  }
+
+  /** Everything `_onRender` does after the markup is in place; patch updates need
+      the same treatment without a full re-render. */
+  #applyRenderEffects(): void {
+    try {
+      this.#applyThemeClass();
+      this.#applyBarState();
+      applyMacroBarPreference();
+      this.#positionBar();
+      this.#repositionAfterRender();
+    } catch (err) {
+      this.#handleError("applyRenderEffects", err);
+    }
+  }
+
+  /** Re-read the actor and update the bar in place; used by the external
+      update hooks. Never flashes. */
+  async refreshInPlace(): Promise<void> {
+    if (!this.#actor) return;
+    this.#mode = detectHudMode(this.#actor);
+    await this.#patchBar([]);
+  }
+
+  /** Mutate a flag then update the bar in place, suppressing the external
+      updateActor render so nothing flashes. `selectors` hint which regions changed
+      and are only used for the fallback path. */
+  async #mutateAndPatch(mutator: Promise<unknown>, selectors: string[] = []): Promise<void> {
     beginAutoRenderSuppression();
     try {
       await mutator;
       await this.#patchBar(selectors);
     } catch (err) {
       logger.warn(`HUD mutate+patch: ${String(err)}`);
-    } finally {
-      endAutoRenderSuppression();
-    }
-  }
-
-  /** Mutate a flag that changes the bar structurally, then do a single full
-      render while suppressing the updateActor render it would otherwise trigger. */
-  async #mutateAndRender(mutator: Promise<unknown>): Promise<void> {
-    beginAutoRenderSuppression();
-    try {
-      await mutator;
-      await this.render({ force: true });
-    } catch (err) {
-      logger.warn(`HUD mutate+render: ${String(err)}`);
     } finally {
       endAutoRenderSuppression();
     }
@@ -1504,7 +1575,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     if (!actor || this.#mode !== "pokemon" || !game.user?.isGM) return;
     const flags = getPokemonNpcFlags(actor);
     if (!canLevelUp(flags.xp ?? 0, readPokemonLevel(actor.system))) return;
-    await this.#mutateAndRender(levelUpPokemon(actor));
+    await this.#mutateAndPatch(levelUpPokemon(actor));
   }
 
   #onToggleStats(): void {
@@ -1749,7 +1820,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
         return;
       }
       event.preventDefault();
-      void this.#mutateAndRender(removePower(actor, index));
+      void this.#mutateAndPatch(removePower(actor, index));
       return;
     }
 
@@ -1787,7 +1858,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       const key = pokemonSlot.dataset.pokemonSlot as "habilidad" | "equipado";
       if (key !== "habilidad" && key !== "equipado") return;
       event.preventDefault();
-      void this.#mutateAndRender(setPokemonSlot(actor, key, { name: "" }));
+      void this.#mutateAndPatch(setPokemonSlot(actor, key, { name: "" }));
       return;
     }
 
@@ -1830,7 +1901,10 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     if (powerCard && this.#mode === "pokemon") {
       const from = Number(powerCard.dataset.powerSlot ?? NaN);
       if (!Number.isInteger(from)) return;
-      event.dataTransfer?.setData("text/plain", JSON.stringify({ type: "pokemon-hud-power", from }));
+      event.dataTransfer?.setData(
+        "text/plain",
+        JSON.stringify({ type: "pokemon-hud-power", from })
+      );
       // Custom type so `dragover` can tell a reorder apart from an item drop.
       event.dataTransfer?.setData(POWER_DRAG_TYPE, String(from));
       if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
@@ -1867,7 +1941,8 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
   #onDragOver = (event: DragEvent): void => {
     const target = event.target as HTMLElement | null;
     const reorder = event.dataTransfer?.types.includes(POWER_DRAG_TYPE) ?? false;
-    if (reorder) this.#markPowerDropTarget(target?.closest<HTMLElement>(".ph-power-card[data-power-slot]"));
+    if (reorder)
+      this.#markPowerDropTarget(target?.closest<HTMLElement>(".ph-power-card[data-power-slot]"));
     if (
       !target?.closest(".ph-inv-slot") &&
       !target?.closest(".ph-traits-slot") &&
@@ -1939,7 +2014,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
         .replace(/\s+/g, " ")
         .trim();
       if (!name) return;
-      await this.#mutateAndRender(
+      await this.#mutateAndPatch(
         setPokemonSlot(this.#actor, key, { name, img, uuid, description })
       );
       return;
@@ -1971,7 +2046,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
           ui.notifications?.warn(game.i18n.localize("pokemon-hud-like.hud.dmColumnOnly"));
           return;
         }
-        await this.#mutateAndRender(reorderPowerSlots(this.#actor, from, index));
+        await this.#mutateAndPatch(reorderPowerSlots(this.#actor, from, index));
         return;
       }
 
@@ -2021,7 +2096,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       });
       const key = movePreviewKey(this.#actor.id, slot);
       if (key) await loadMovePreview(key, doc as LinkedItemLike | null);
-      await this.#mutateAndRender(setPowerSlot(this.#actor, index, slot));
+      await this.#mutateAndPatch(setPowerSlot(this.#actor, index, slot));
       return;
     }
 
@@ -2277,7 +2352,7 @@ function flushHudSchedule(): void {
     void deactivateHud();
     return;
   }
-  if (refresh) void activeInstance?.render({ force: true });
+  if (refresh) void activeInstance?.refreshInPlace();
 }
 
 function ensureHudFlush(): void {

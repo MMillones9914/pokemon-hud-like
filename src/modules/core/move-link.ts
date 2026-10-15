@@ -51,7 +51,10 @@ interface ItemOwner {
 }
 
 /** The `_id` to remember for a dropped document, when it is embedded in `actor`. */
-export function embeddedItemIdFor(actorId: string | null | undefined, doc: unknown): string | undefined {
+export function embeddedItemIdFor(
+  actorId: string | null | undefined,
+  doc: unknown
+): string | undefined {
   const d = doc as { id?: unknown; documentName?: unknown; parent?: { id?: string } } | null;
   if (!d || d.documentName !== "Item") return undefined;
   if (typeof d.id !== "string" || !d.id) return undefined;

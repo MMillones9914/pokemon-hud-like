@@ -11,14 +11,17 @@ interface RichTooltipResult {
   classes?: string[];
 }
 
-type RichTooltipFn = (options?: unknown) => Promise<RichTooltipResult | null> | RichTooltipResult | null;
+type RichTooltipFn = (
+  options?: unknown
+) => Promise<RichTooltipResult | null> | RichTooltipResult | null;
 
 interface RichTooltipDoc {
   richTooltip?: RichTooltipFn;
   system?: { richTooltip?: RichTooltipFn } | unknown;
 }
 
-const CACHE_LIMIT = 128;
+/** Rich tooltips are cached per actor+item; inventory grids can hold many items. */
+const CACHE_LIMIT = 512;
 const cache = new Map<string, RichPreview>();
 
 /** Stable cache key for a move preview: one entry per item of one actor. */

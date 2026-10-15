@@ -197,6 +197,7 @@
               <div class="ph-inv-slot{{#if (eq this.id ../../selectedPokeballId)}} ph-inv-slot--selected{{/if}}"
                    draggable="true" data-item-id="{{this.id}}"
                    data-action="{{#if (eq this.category 'pokeball')}}select-pokeball{{else}}use-item{{/if}}"
+                   {{#if this.tooltipClass}}data-tooltip-class="{{this.tooltipClass}}"{{/if}}
                    data-tooltip-html="{{{this.tooltipHtml}}}">
                 {{#if this.img}}
                 <img class="ph-inv-img" src="{{this.img}}" alt="{{this.name}}" draggable="false" />
