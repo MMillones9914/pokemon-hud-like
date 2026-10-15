@@ -20,6 +20,7 @@ import { DEFAULT_TRAINER_FLAGS, DEFAULT_POKEMON_FLAGS } from "../types";
 import { clampedPct, hpColor, typeColor } from "./stats";
 import { MAX_LEVEL, canLevelUp, xpMaxForLevel, xpNextMax } from "./leveling";
 import { getPowerSlots, getPowers } from "./powers";
+import { readMoveUses, resolvePowerItem } from "./move-link";
 import { readStatBreakdown } from "./stat-breakdown";
 import { getModuleFlag, setModuleFlag } from "./flags";
 import { getKeyItemNames } from "./settings";
@@ -686,20 +687,40 @@ export function buildTrainerContext(
   };
 }
 
+/** Escapes HTML for a double-quoted attribute value; the browser decodes it back
+    verbatim when Foundry reads `dataset.tooltipHtml`. */
+export function attrEscape(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 export function buildPokemonContext(actor: Actor): PokemonHudContext {
   const pf = getPokemonNpcFlags(actor);
-  const powerSlots = getPowerSlots(actor).map((p, i) => ({
-    index: i,
-    dmOnly: i % 3 === 2,
-    power: p
-      ? {
-          ...p,
-          typeColor: typeColor(p.type),
-          depleted: p.pp <= 0,
-          tooltipHtml: buildPowerTooltip(p)
-        }
-      : null
-  }));
+  const powerSlots = getPowerSlots(actor).map((p, i) => {
+    if (!p) return { index: i, dmOnly: i % 3 === 2, power: null };
+    // A move dragged from a real sheet mirrors that Item: its own charge counter
+    // is the single source of truth, so the HUD never keeps a second copy.
+    const uses = readMoveUses(resolvePowerItem(actor, p)?.system);
+    const pp = uses?.limited ? uses.value : p.pp;
+    const maxPp = uses?.limited ? uses.max : p.maxPp;
+    return {
+      index: i,
+      dmOnly: i % 3 === 2,
+      power: {
+        ...p,
+        pp,
+        maxPp,
+        showPp: uses ? uses.limited : p.maxPp > 0,
+        depleted: uses ? uses.limited && uses.value <= 0 : p.pp <= 0,
+        typeColor: typeColor(p.type),
+        tooltipHtml: attrEscape(buildPowerTooltip({ ...p, pp, maxPp })),
+        tooltipClass: ""
+      }
+    };
+  });
   const level = readPokemonLevel(actor.system);
   const xpTotal = Math.max(0, Math.floor(pf.xp ?? 0));
   const xpMax = xpNextMax(level) ?? xpMaxForLevel(level);

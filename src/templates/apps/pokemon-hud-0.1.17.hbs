@@ -349,13 +349,13 @@
 <div class="ph-powers-grid">
             {{#each this.powerSlots}}
             <div class="ph-power-card{{#unless this.power}} ph-power-card--empty{{/unless}}{{#if this.power.depleted}} ph-power-card--no-pp{{/if}}"
-                 {{#if this.power}}data-action="use-power"{{/if}}
+                 {{#if this.power}}data-action="use-power" draggable="true"{{/if}}
                  data-power-slot="{{this.index}}"
-                 {{#if this.power}}data-power-index="{{this.index}}" data-tooltip-html="{{{this.power.tooltipHtml}}}"{{/if}}>
+                 {{#if this.power}}data-power-index="{{this.index}}"{{#if this.power.tooltipClass}} data-tooltip-class="{{this.power.tooltipClass}}"{{/if}} data-tooltip-html="{{{this.power.tooltipHtml}}}"{{/if}}>
               {{#if this.power}}
               <img class="ph-power-img" src="{{this.power.img}}" alt="{{this.power.name}}" />
               <span class="ph-power-name">{{this.power.name}}</span>
-              <span class="ph-power-pp">{{this.power.pp}}</span>
+              {{#if this.power.showPp}}<span class="ph-power-pp">{{this.power.pp}}</span>{{/if}}
               {{else}}
               <span class="ph-empty-hint">—</span>
               {{/if}}

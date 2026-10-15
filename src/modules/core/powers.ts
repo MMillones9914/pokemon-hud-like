@@ -27,7 +27,8 @@ export function normalizePower(source: Partial<PowerData> | null | undefined): P
     requiresSave: Boolean(source?.requiresSave),
     saveType: typeof source?.saveType === "string" ? source.saveType : "",
     img: typeof source?.img === "string" && source.img.trim() ? source.img : "icons/svg/d20.svg",
-    ...(typeof source?.uuid === "string" && source.uuid ? { uuid: source.uuid } : {})
+    ...(typeof source?.uuid === "string" && source.uuid ? { uuid: source.uuid } : {}),
+    ...(typeof source?.itemId === "string" && source.itemId ? { itemId: source.itemId } : {})
   };
 }
 
@@ -98,6 +99,33 @@ export async function setPowerSlot(
   const slots = getPowerSlots(actor);
   if (index >= 0 && index < MAX_POWER_SLOTS) slots[index] = power ? normalizePower(power) : null;
   await setActorFlag(actor, POWERS_FLAG, slots);
+}
+
+/** Moves the power at `from` into slot `to`, swapping when the target is already
+    occupied (so no move is ever lost) and leaving a hole when it is empty. */
+export function movePowerSlot(
+  slots: (PowerData | null)[],
+  from: number,
+  to: number
+): (PowerData | null)[] {
+  const out = [...slots];
+  if (from === to) return out;
+  if (from < 0 || to < 0 || from >= out.length || to >= out.length) return out;
+  const moving = out[from];
+  const displaced = out[to];
+  out[to] = moving;
+  out[from] = displaced ?? null;
+  return out;
+}
+
+/** Persists a swap/move between two grid slots. */
+export async function reorderPowerSlots(
+  actor: Actor,
+  from: number,
+  to: number
+): Promise<PowerData[]> {
+  await setActorFlag(actor, POWERS_FLAG, movePowerSlot(getPowerSlots(actor), from, to));
+  return getPowers(actor);
 }
 
 export function firstFreePowerSlot(actor: Actor): number {

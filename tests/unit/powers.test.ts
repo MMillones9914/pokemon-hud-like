@@ -6,7 +6,8 @@ import {
   withoutIndex,
   isPowerValid,
   listFromFlag,
-  clampPpPair
+  clampPpPair,
+  movePowerSlot
 } from "../../src/modules/core/powers";
 
 describe("normalizePower", () => {
@@ -109,5 +110,46 @@ describe("clampPpPair", () => {
   });
   it("clamps negative to 0", () => {
     expect(clampPpPair(-3, 5)).toEqual({ pp: 0, maxPp: 5 });
+  });
+});
+
+describe("movePowerSlot", () => {
+  const a = normalizePower({ name: "A" });
+  const b = normalizePower({ name: "B" });
+  const c = normalizePower({ name: "C" });
+
+  it("swaps two occupied slots", () => {
+    const out = movePowerSlot([a, b], 0, 1);
+    expect(out.map((p) => p?.name)).toEqual(["B", "A"]);
+  });
+
+  it("moves a power into an empty slot", () => {
+    const out = movePowerSlot([a, b, null, null], 1, 3);
+    expect(out[1]).toBeNull();
+    expect(out[3]?.name).toBe("B");
+  });
+
+  it("swaps a power into a hole from an occupied start", () => {
+    const out = movePowerSlot([a, null, c], 2, 1);
+    expect(out[1]?.name).toBe("C");
+    expect(out[2]).toBeNull();
+  });
+
+  it("ignores no-op and out-of-range requests", () => {
+    const slots = [a, b];
+    expect(movePowerSlot(slots, 1, 1)).toEqual(slots);
+    expect(movePowerSlot(slots, 0, 9).map((p) => p?.name)).toEqual(["A", "B"]);
+    expect(movePowerSlot(slots, -1, 1).map((p) => p?.name)).toEqual(["A", "B"]);
+  });
+
+  it("does not mutate the input array", () => {
+    const slots = [a, b];
+    movePowerSlot(slots, 0, 1);
+    expect(slots.map((p) => p?.name)).toEqual(["A", "B"]);
+  });
+
+  it("keeps the total number of powers constant", () => {
+    const out = movePowerSlot([a, b, c], 0, 2);
+    expect(out.filter(Boolean)).toHaveLength(3);
   });
 });

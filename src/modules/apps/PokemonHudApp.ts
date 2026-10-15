@@ -1,8 +1,9 @@
 import type { DeepPartial } from "fvtt-types/utils";
-import type { HudBarContext, HudMode, InventoryCategory, PowerData } from "../types";
+import type { HudBarContext, HudMode, InventoryCategory, PowerData, PowerSlotView } from "../types";
 import {
   addActorItemFromSource,
   addBadge,
+  attrEscape,
   buildHudBarContext,
   consumeActorItem,
   deleteActorItem,
@@ -43,8 +44,16 @@ import {
   getPowerSlot,
   setPowerSlot,
   removePower,
+  reorderPowerSlots,
   updatePower
 } from "../core/powers";
+import {
+  embeddedItemIdFor,
+  resolvePowerItem,
+  readMoveUses,
+  type LinkedItemLike
+} from "../core/move-link";
+import { loadMovePreview, movePreviewKey } from "../data/move-preview";
 import { isMobileMode } from "../core/mobile";
 import { getSettings } from "../core/settings";
 import { readStatBreakdown } from "../core/stat-breakdown";
@@ -52,6 +61,9 @@ import { d20Formula, rollModeFromKeys, type RollMode } from "../core/roll-mode";
 import { SUMMON_RANGE_FEET, maxSummonCells, summonOffsets } from "../core/summon";
 
 const MODULE_ID = "pokemon-hud-like";
+
+/** Drag payload type used to tell an internal power reorder from an item drop. */
+const POWER_DRAG_TYPE = "application/x-pokemon-hud-power";
 
 function escapePokedexHtml(value: string): string {
   return value
@@ -262,7 +274,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     foundry.applications.api.HandlebarsApplicationMixin.HandlebarsTemplatePart
   > = {
     bar: {
-      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.16.hbs`,
+      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.17.hbs`,
       id: `${MODULE_ID}-bar`,
       root: true
     }
@@ -280,6 +292,9 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
   #selectedPokeballId: string | null = null;
 
   #selectedPartyIndex: number | null = null;
+
+  /** Power card currently highlighted as a reorder drop target. */
+  #powerDropTarget: HTMLElement | null = null;
 
   /** True while Foundry's own token placement workflow is waiting for a click. */
   #placingSummon = false;
@@ -427,6 +442,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       ctx.trainer.selectedPartyIndex = this.#selectedPartyIndex;
       ctx.trainer.hasPartySelection = this.#selectedPartyIndex !== null;
     }
+    if (ctx.pokemon) await this.#applyMovePreviews(ctx.pokemon.powerSlots);
     return {
       mode: ctx.mode,
       isTrainer: ctx.mode === "trainer",
@@ -440,6 +456,25 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       selectedPokeballImg: this.#selectedPokeballItem()?.img ?? null,
       showBadges: this.#showBadges
     };
+  }
+
+  /** Swaps the basic tooltip for the system's own rich item preview (the same
+      card Foundry shows when hovering an item link in chat). */
+  async #applyMovePreviews(slots: PowerSlotView[]): Promise<void> {
+    const actor = this.#actor;
+    if (!actor) return;
+    await Promise.all(
+      slots.map(async (slot) => {
+        const power = slot.power;
+        if (!power) return;
+        const key = movePreviewKey(actor.id, power);
+        if (!key) return;
+        const preview = await loadMovePreview(key, resolvePowerItem(actor, power));
+        if (!preview) return;
+        power.tooltipHtml = attrEscape(preview.html);
+        power.tooltipClass = preview.classes.join(" ");
+      })
+    );
   }
 
   override render(options?: DeepPartial<BarRenderOptions>): Promise<this>;
@@ -473,6 +508,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       this.element.addEventListener("contextmenu", this.#onContextMenu);
       this.element.addEventListener("dragstart", this.#onDragStart);
       this.element.addEventListener("dragover", this.#onDragOver);
+      this.element.addEventListener("dragend", this.#onDragEnd);
       this.element.addEventListener("drop", this.#onDrop);
       this.element.addEventListener("mouseover", this.#onDiceOver);
       this.element.addEventListener("mouseout", this.#onDiceOut);
@@ -1210,10 +1246,19 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     const index = Number(element.dataset.powerIndex ?? NaN);
     const power = Number.isInteger(index) ? getPowerSlot(actor, index) : null;
     if (!power?.name.trim()) return;
-    if (power.uuid) await this.#activateByUuid(power.uuid, power.name);
+    // Always act on the actor's own item copy: it is the one the HUD counts.
+    const linked = resolvePowerItem(actor, power);
+    const before = readMoveUses(linked?.system);
+    if (power.uuid) await this.#activateByUuid(power.uuid, power.name, linked);
     else await this.#chatItemFallback(actor, power.name);
-    await this.#postPowerToChat(power, actor);
-    await this.#mutateAndRender(updatePower(actor, index, { pp: Math.max(0, power.pp - 1) }));
+    const after = readMoveUses(linked?.system);
+    // Cancelling the item's own usage dialog spends nothing, so nothing is logged.
+    if (!before || !after || !before.limited || before.value !== after.value) {
+      await this.#postPowerToChat(power, actor);
+    }
+    // A move that mirrors an item keeps its charges there — never mirror them here.
+    if (before || after) await this.#mutateAndRender(Promise.resolve());
+    else await this.#mutateAndRender(updatePower(actor, index, { pp: Math.max(0, power.pp - 1) }));
   }
 
   async #postPowerToChat(power: PowerData, actor: Actor): Promise<void> {
@@ -1248,10 +1293,10 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     }
   }
 
-  async #activateByUuid(uuid: string, fallbackName: string): Promise<unknown> {
+  async #activateByUuid(uuid: string, fallbackName: string, preferred?: unknown): Promise<unknown> {
     const actor = this.#actor;
     if (!actor) return null;
-    const doc = await foundry.utils.fromUuid(uuid);
+    const doc = preferred ?? (await foundry.utils.fromUuid(uuid));
     if (!doc) {
       await this.#chatItemFallback(actor, fallbackName);
       return null;
@@ -1776,7 +1821,24 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
   };
 
   #onDragStart = (event: DragEvent): void => {
-    if (!this.#actor || this.#mode !== "trainer") return;
+    if (!this.#actor) return;
+
+    // Reordering is an internal drag: the card carries its own slot index.
+    const powerCard = (event.target as HTMLElement | null)?.closest<HTMLElement>(
+      '.ph-power-card[data-power-slot][data-action="use-power"]'
+    );
+    if (powerCard && this.#mode === "pokemon") {
+      const from = Number(powerCard.dataset.powerSlot ?? NaN);
+      if (!Number.isInteger(from)) return;
+      event.dataTransfer?.setData("text/plain", JSON.stringify({ type: "pokemon-hud-power", from }));
+      // Custom type so `dragover` can tell a reorder apart from an item drop.
+      event.dataTransfer?.setData(POWER_DRAG_TYPE, String(from));
+      if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+      powerCard.classList.add("ph-power-card--dragging");
+      return;
+    }
+
+    if (this.#mode !== "trainer") return;
 
     const partySlot = (event.target as HTMLElement | null)?.closest<HTMLElement>(
       ".ph-party-slot[data-actor-id]"
@@ -1804,6 +1866,8 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
 
   #onDragOver = (event: DragEvent): void => {
     const target = event.target as HTMLElement | null;
+    const reorder = event.dataTransfer?.types.includes(POWER_DRAG_TYPE) ?? false;
+    if (reorder) this.#markPowerDropTarget(target?.closest<HTMLElement>(".ph-power-card[data-power-slot]"));
     if (
       !target?.closest(".ph-inv-slot") &&
       !target?.closest(".ph-traits-slot") &&
@@ -1817,6 +1881,27 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     event.preventDefault();
     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
   };
+
+  #onDragEnd = (): void => {
+    this.#clearPowerDragState();
+  };
+
+  #markPowerDropTarget(card: HTMLElement | null | undefined): void {
+    if (this.#powerDropTarget === card) return;
+    this.#clearPowerDragState();
+    if (card) {
+      card.classList.add("ph-power-card--drop");
+      this.#powerDropTarget = card;
+    }
+  }
+
+  #clearPowerDragState(): void {
+    this.#powerDropTarget?.classList.remove("ph-power-card--drop");
+    this.#powerDropTarget = null;
+    this.element?.querySelectorAll(".ph-power-card--dragging").forEach((el) => {
+      el.classList.remove("ph-power-card--dragging");
+    });
+  }
 
   #onDrop = async (event: DragEvent): Promise<void> => {
     const target = event.target as HTMLElement | null;
@@ -1865,21 +1950,35 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       event.preventDefault();
       const index = Number(powerCard.dataset.powerSlot ?? NaN);
       if (!Number.isInteger(index)) return;
+      this.#clearPowerDragState();
       // Rightmost power column (index % 3 === 2) is GM-only.
       if (!game.user?.isGM && index % 3 === 2) {
         ui.notifications?.warn(game.i18n.localize("pokemon-hud-like.hud.dmColumnOnly"));
         return;
       }
       const raw = event.dataTransfer?.getData("text/plain") ?? "";
-      let parsed: { uuid?: string } | null = null;
+      let parsed: { type?: string; from?: number; uuid?: string } | null = null;
       try {
-        parsed = JSON.parse(raw) as { uuid?: string };
+        parsed = JSON.parse(raw) as { type?: string; from?: number; uuid?: string };
       } catch {
         parsed = null;
       }
+
+      // Rearrangement: dropping onto an occupied slot swaps both moves.
+      if (parsed?.type === "pokemon-hud-power" && Number.isInteger(parsed.from)) {
+        const from = Number(parsed.from);
+        if (!game.user?.isGM && from % 3 === 2) {
+          ui.notifications?.warn(game.i18n.localize("pokemon-hud-like.hud.dmColumnOnly"));
+          return;
+        }
+        await this.#mutateAndRender(reorderPowerSlots(this.#actor, from, index));
+        return;
+      }
+
       const uuid = typeof parsed?.uuid === "string" ? parsed.uuid : undefined;
       if (!uuid) return;
       const doc = await foundry.utils.fromUuid(uuid);
+      if (!doc || (doc as { documentName?: string }).documentName !== "Item") return;
       const d = doc as unknown as {
         name?: unknown;
         img?: unknown;
@@ -1908,13 +2007,21 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       const usesMax = Number(usesRaw?.max ?? NaN);
       const pp = Number.isFinite(usesVal) ? Math.max(0, Math.floor(usesVal)) : 1;
       const maxPp = Number.isFinite(usesMax) ? Math.max(pp, Math.floor(usesMax)) : pp;
-      await this.#mutateAndRender(
-        setPowerSlot(
-          this.#actor,
-          index,
-          normalizePower({ name, img, description, uuid, type: "normal", pp, maxPp, damage: "" })
-        )
-      );
+      const itemId = embeddedItemIdFor(this.#actor.id, doc);
+      const slot = normalizePower({
+        name,
+        img,
+        description,
+        uuid,
+        itemId,
+        type: "normal",
+        pp,
+        maxPp,
+        damage: ""
+      });
+      const key = movePreviewKey(this.#actor.id, slot);
+      if (key) await loadMovePreview(key, doc as LinkedItemLike | null);
+      await this.#mutateAndRender(setPowerSlot(this.#actor, index, slot));
       return;
     }
 

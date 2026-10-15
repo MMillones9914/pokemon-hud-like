@@ -1477,6 +1477,21 @@ body.swipe-vtt:not(.swipe-vtt-foundry-ui) [class*="pokemon-hud-like"][class*="ph
 .ph-power-card[data-action="use-power"]:hover {
   border-color: var(--ph-accent);
 }
+.ph-power-card[draggable="true"] {
+  cursor: grab;
+}
+.ph-power-card[draggable="true"]:active {
+  cursor: grabbing;
+}
+.ph-power-card--dragging {
+  opacity: 0.4;
+  border-style: dashed;
+}
+.ph-power-card--drop {
+  border-color: var(--ph-accent);
+  border-style: dashed;
+  background: color-mix(in srgb, var(--ph-accent) 18%, transparent);
+}
 .ph-power-card[data-power-slot]:not([data-action]):not(.ph-card-disabled) {
   cursor: pointer;
 }

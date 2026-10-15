@@ -74,6 +74,9 @@ export interface PowerData {
   img?: string;
 
   uuid?: string;
+
+  /** `_id` of the embedded Item this move mirrors, when it lives on the owner. */
+  itemId?: string;
 }
 
 export type HpColor = "hp-high" | "hp-mid" | "hp-low";
@@ -102,7 +105,14 @@ export interface PowerView extends PowerData {
 
   depleted?: boolean;
 
+  /** False for moves without a charge counter (unlimited or item-tracked). */
+  showPp: boolean;
+
+  /** Tooltip HTML, already escaped for a double-quoted attribute. */
   tooltipHtml: string;
+
+  /** Extra classes for Foundry's tooltip element (system rich preview). */
+  tooltipClass: string;
 }
 
 export interface TraitSlot {
