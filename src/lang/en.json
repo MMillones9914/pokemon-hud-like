@@ -172,11 +172,10 @@
       },
       "position": {
         "name": "HUD Position",
-        "hint": "Anchor the HUD relative to the selected token.",
+        "hint": "Horizontal alignment of the HUD bar at the bottom of the screen. Automatically recalculated when the chat sidebar opens or closes.",
         "left": "Left",
-        "right": "Right",
-        "top": "Top",
-        "bottom": "Bottom"
+        "center": "Center",
+        "right": "Right"
       },
       "offsetX": {
         "name": "Horizontal offset",

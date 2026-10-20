@@ -84,7 +84,7 @@ export interface PowerData {
 
 export type HpColor = "hp-high" | "hp-mid" | "hp-low";
 
-export type HudPosition = "left" | "right" | "top" | "bottom";
+export type HudPosition = "left" | "center" | "right";
 
 export interface SystemHp {
   value: number;

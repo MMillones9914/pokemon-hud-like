@@ -19,6 +19,7 @@ export const DEFAULT_ACCENT = "#ee1515";
 
 export interface SettingsHooks {
   onHideMacroBarChange?: () => void;
+  onPositionChange?: () => void;
 }
 
 export function registerSettings(hooks?: SettingsHooks): void {
@@ -48,11 +49,11 @@ export function registerSettings(hooks?: SettingsHooks): void {
     type: String,
     choices: {
       left: "pokemon-hud-like.settings.position.left",
-      right: "pokemon-hud-like.settings.position.right",
-      top: "pokemon-hud-like.settings.position.top",
-      bottom: "pokemon-hud-like.settings.position.bottom"
+      center: "pokemon-hud-like.settings.position.center",
+      right: "pokemon-hud-like.settings.position.right"
     },
-    default: "right"
+    default: "center",
+    onChange: () => hooks?.onPositionChange?.()
   });
 
   game.settings.register(SCOPE, SETTINGS.offsetX, {
@@ -137,13 +138,20 @@ export function getSettings(): {
   return {
     enabled: game.settings.get(SCOPE, SETTINGS.enabled) as boolean,
     autoShow: game.settings.get(SCOPE, SETTINGS.autoShow) as boolean,
-    position: game.settings.get(SCOPE, SETTINGS.position) as HudPosition,
+    position: readHudPosition(),
     offsetX: game.settings.get(SCOPE, SETTINGS.offsetX) as number,
     offsetY: game.settings.get(SCOPE, SETTINGS.offsetY) as number,
     accentColor: toCssColor(game.settings.get(SCOPE, SETTINGS.accentColor)),
     hideMacroBar: game.settings.get(SCOPE, SETTINGS.hideMacroBar) as boolean,
     debug: game.settings.get(SCOPE, SETTINGS.debug) as boolean
   };
+}
+
+/** The stored value may predate the left/center/right choices (old top/bottom
+    values); anything unexpected falls back to center. */
+function readHudPosition(): HudPosition {
+  const raw = game.settings.get(SCOPE, SETTINGS.position) as string;
+  return raw === "left" || raw === "right" ? raw : "center";
 }
 
 function toCssColor(value: unknown): string {

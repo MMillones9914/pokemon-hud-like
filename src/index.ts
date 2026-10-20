@@ -16,11 +16,15 @@ import {
   refreshPartyForActor,
   showHud,
   visibleActor,
-  applyMacroBarPreference
+  applyMacroBarPreference,
+  repositionHud
 } from "./modules/apps/PokemonHudApp";
 
 Hooks.once("init", () => {
-  registerSettings({ onHideMacroBarChange: applyMacroBarPreference });
+  registerSettings({
+    onHideMacroBarChange: applyMacroBarPreference,
+    onPositionChange: repositionHud
+  });
   registerKeybindings();
   registerHandlebarsHelpers();
 });

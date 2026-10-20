@@ -296,7 +296,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     foundry.applications.api.HandlebarsApplicationMixin.HandlebarsTemplatePart
   > = {
     bar: {
-      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.19.hbs`,
+      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.2.1.hbs`,
       id: `${MODULE_ID}-bar`,
       root: true
     }
@@ -328,6 +328,8 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
   #captureTimer: number | null = null;
   #onResizeBound?: () => void;
   #resizeObserver?: ResizeObserver;
+  #sidebarObserver?: MutationObserver;
+  #observedSidebar?: HTMLElement;
 
   #onDiceOver = (event: Event): void => {
     const wrap = this.#diceWrapFor(event);
@@ -654,26 +656,28 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
   }
 
   /** Fixed bottom bar (not token-anchored). `left`/`transform` are pinned inline
-      with `!important` so AppV2 window-pose logic can't re-position it. */
+      with `!important` so AppV2 window-pose logic can't re-position it.
+      Horizontal alignment follows the client `position` setting (left/center/right)
+      and is computed against the AVAILABLE area — the viewport minus the sidebar —
+      so the bar never sits behind the chat/roll panel, whatever tab is open. */
   #positionBar(): void {
     const el = this.element;
     if (!el.isConnected) return;
+    this.#observeSidebar();
     const rect = el.getBoundingClientRect();
     const margin = 12;
     const vw = window.innerWidth;
-
-    if (vw <= 1380) {
-      el.style.setProperty("left", `${margin}px`, "important");
-      el.style.setProperty("transform", "none", "important");
-      return;
-    }
-
-    let left = Math.max(margin, (vw - rect.width) / 2);
-    const sidebar = document.getElementById("sidebar");
+    let available = vw;
+    const sidebar = this.#observedSidebar;
     if (sidebar && sidebar.offsetWidth > 0) {
       const side = sidebar.getBoundingClientRect();
-      left = Math.min(left, Math.max(margin, side.left - rect.width - margin));
+      if (side.left > margin) available = side.left;
     }
+    const align = getSettings().position;
+    let left: number;
+    if (align === "left") left = margin;
+    else if (align === "right") left = Math.max(margin, available - rect.width - margin);
+    else left = Math.max(margin, (available - rect.width) / 2);
     el.style.setProperty("left", `${left}px`, "important");
     el.style.setProperty("transform", "none", "important");
   }
@@ -696,11 +700,32 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       window.addEventListener("resize", this.#onResizeBound);
       this.#resizeObserver = new ResizeObserver(this.#onResizeBound);
       this.#resizeObserver.observe(this.element);
-      const sidebar = document.getElementById("sidebar");
-      if (sidebar) this.#resizeObserver.observe(sidebar);
+      this.#observeSidebar();
     } catch (err) {
       this.#handleError("bind positioning", err);
     }
+  }
+
+  /** Watch `#sidebar`: size changes (collapse/expand) hit the ResizeObserver and
+      class/style toggles (chat tab, dice tray, any right-side panel opening)
+      hit the MutationObserver — both recalculate the bar position. Re-acquired
+      lazily from `#positionBar` because the sidebar may not exist yet on the
+      first render. */
+  #observeSidebar(): void {
+    const sidebar = document.getElementById("sidebar");
+    if (!sidebar || sidebar === this.#observedSidebar) return;
+    if (this.#observedSidebar) {
+      this.#resizeObserver?.unobserve(this.#observedSidebar);
+      this.#sidebarObserver?.disconnect();
+    }
+    this.#observedSidebar = sidebar;
+    this.#resizeObserver?.observe(sidebar);
+    this.#sidebarObserver = new MutationObserver(() => this.#positionBar());
+    this.#sidebarObserver.observe(sidebar, {
+      attributes: true,
+      subtree: true,
+      attributeFilter: ["class", "style"]
+    });
   }
 
   #unbindPositioning(): void {
@@ -708,6 +733,16 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     this.#resizeObserver?.disconnect();
     this.#resizeObserver = undefined;
     this.#onResizeBound = undefined;
+    this.#sidebarObserver?.disconnect();
+    this.#sidebarObserver = undefined;
+    this.#observedSidebar = undefined;
+  }
+
+  /** Public entry for the `position` module-setting onChange hook. */
+  reposition(): void {
+    if (!this.rendered) return;
+    this.#positionBar();
+    this.#repositionAfterRender();
   }
 
   #onOpenSheet(): void {
@@ -2316,6 +2351,12 @@ export function applyMacroBarPreference(): void {
     const bar = document.querySelector<HTMLElement>(selector);
     if (bar) bar.classList.toggle("ph-hidden", hidden);
   }
+}
+
+/** Recalculate the bar placement without touching its content; wired to the
+    client `position` setting (left/center/right) onChange hook. */
+export function repositionHud(): void {
+  activeInstance?.reposition();
 }
 
 let autoRenderSuppressions = 0;

@@ -172,11 +172,10 @@
       },
       "position": {
         "name": "Posición del HUD",
-        "hint": "Anclar el HUD respecto al token seleccionado.",
+        "hint": "Alineación horizontal de la barra HUD en la parte inferior. Se recalcula automáticamente al abrir o cerrar el sidebar de chat.",
         "left": "Izquierda",
-        "right": "Derecha",
-        "top": "Arriba",
-        "bottom": "Abajo"
+        "center": "Centro",
+        "right": "Derecha"
       },
       "offsetX": {
         "name": "Desplazamiento horizontal",
