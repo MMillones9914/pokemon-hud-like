@@ -1243,6 +1243,10 @@ body.swipe-vtt:not(.swipe-vtt-foundry-ui) [class*="pokemon-hud-like"][class*="ph
   overflow: hidden;
 }
 
+.ph-xp-bar-top[data-action] {
+  cursor: pointer;
+}
+
 .ph-xp-fill-top {
   height: 100%;
   width: calc(var(--ph-pct, 0) * 100%);
@@ -1321,29 +1325,6 @@ body.swipe-vtt:not(.swipe-vtt-foundry-ui) [class*="pokemon-hud-like"][class*="ph
   border-radius: var(--ph-radius-sm);
 }
 
-.ph-portrait--pokemon .ph-xp-gm {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
-  min-width: 108px;
-  max-width: 136px;
-  align-self: flex-end;
-}
-
-.ph-portrait--pokemon .ph-xp-gm label {
-  text-align: center;
-}
-
-.ph-portrait--pokemon .ph-xp-gm input[type="number"] {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.ph-portrait--pokemon .ph-xp-gm-max,
-.ph-portrait--pokemon .ph-xp-max-tag {
-  align-self: center;
-}
-
 .ph-xp-gm label {
   font-size: 10px;
   font-weight: 700;
@@ -1399,10 +1380,36 @@ body.swipe-vtt:not(.swipe-vtt-foundry-ui) [class*="pokemon-hud-like"][class*="ph
 }
 
 .ph-menu-bars {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--ph-gap-sm);
   width: 100%;
+}
+
+/* GM-only XP editor popup: opened by clicking the XP bar, anchored right below it. */
+.ph-xp-popup {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.65);
+  animation: ph-xp-popup-in 0.12s ease-out;
+}
+
+.ph-xp-popup[hidden] {
+  display: none !important;
+}
+
+@keyframes ph-xp-popup-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .ph-menu-sections {

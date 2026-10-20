@@ -296,7 +296,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     foundry.applications.api.HandlebarsApplicationMixin.HandlebarsTemplatePart
   > = {
     bar: {
-      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.18.hbs`,
+      template: `modules/${MODULE_ID}/templates/apps/pokemon-hud-0.1.19.hbs`,
       id: `${MODULE_ID}-bar`,
       root: true
     }
@@ -310,6 +310,10 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
   #showStats = false;
   #minimized = false;
   #diceHideTimer: number | null = null;
+
+  /** Actor id whose GM XP-editor popup is open (null = closed). Keyed per
+      actor so every Pokémon has its own popup instance; cleared on actor switch. */
+  #xpEditorOpenFor: string | null = null;
 
   #selectedPokeballId: string | null = null;
 
@@ -383,6 +387,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     else if (action === "toggle-badges") this.#onToggleBadges();
     else if (action === "toggle-minimize") this.#onToggleMinimize();
     else if (action === "level-up") void this.#onLevelUp();
+    else if (action === "toggle-xp-editor") void this.#onToggleXpEditor();
     else if (action === "toggle-stats") this.#onToggleStats();
     else if (action === "roll-ability") void this.#onRollAbility(button, mode);
     else if (action === "roll-skill") void this.#onRollSkill(button, mode);
@@ -468,6 +473,9 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       await this.#applyInventoryPreviews(this.#actor, ctx.trainer.inventory);
     }
     if (ctx.pokemon) await this.#applyMovePreviews(ctx.pokemon.powerSlots);
+    if (ctx.pokemon) {
+      ctx.pokemon.xpEditorOpen = ctx.isGM && this.#xpEditorOpenFor === ctx.pokemon.actorId;
+    }
     return {
       mode: ctx.mode,
       isTrainer: ctx.mode === "trainer",
@@ -560,6 +568,7 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       this.element.addEventListener("drop", this.#onDrop);
       this.element.addEventListener("mouseover", this.#onDiceOver);
       this.element.addEventListener("mouseout", this.#onDiceOut);
+      document.addEventListener("click", this.#onDocumentClick);
       this.#bindPositioning();
     } catch (err) {
       this.#handleError("bind events", err);
@@ -587,6 +596,8 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
       window.clearTimeout(this.#diceHideTimer);
       this.#diceHideTimer = null;
     }
+    this.#xpEditorOpenFor = null;
+    document.removeEventListener("click", this.#onDocumentClick);
     this.#removeCaptureOverlay();
     applyMacroBarPreference();
     this.#unbindPositioning();
@@ -597,7 +608,10 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     const changed = this.#actor?.id !== actor.id;
     this.#actor = actor;
     this.#mode = detectHudMode(actor);
-    if (changed) this.#selectedPartyIndex = null;
+    if (changed) {
+      this.#selectedPartyIndex = null;
+      this.#xpEditorOpenFor = null;
+    }
     if (this.rendered) await this.#patchBar([]);
     else await this.render({ force: true });
   }
@@ -1577,6 +1591,30 @@ export class PokemonHudApp extends foundry.applications.api.HandlebarsApplicatio
     if (!canLevelUp(flags.xp ?? 0, readPokemonLevel(actor.system))) return;
     await this.#mutateAndPatch(levelUpPokemon(actor));
   }
+
+  /** GM-only XP popup: clicking the XP bar toggles it for the CURRENT actor only;
+      each Pokémon keeps its own state (reset when the HUD switches actor). */
+  async #onToggleXpEditor(): Promise<void> {
+    const actor = this.#actor;
+    if (!actor || this.#mode !== "pokemon" || !game.user?.isGM) return;
+    const id = actor.id;
+    this.#xpEditorOpenFor = this.#xpEditorOpenFor === id ? null : id;
+    await this.#patchBar([".ph-menu-bars"]);
+    if (this.#xpEditorOpenFor === id) {
+      this.element?.querySelector<HTMLInputElement>(".ph-xp-popup input")?.focus();
+    }
+  }
+
+  /** Closes the XP popup when the user clicks anything that is neither the
+      popup itself nor the XP bar (canvas, other HUD controls, sheets...). */
+  #onDocumentClick = (event: Event): void => {
+    if (!this.#xpEditorOpenFor || !this.rendered) return;
+    const target = event.target as HTMLElement | null;
+    if (!target?.isConnected) return;
+    if (target.closest(".ph-xp-popup, .ph-xp-bar-top")) return;
+    this.#xpEditorOpenFor = null;
+    void this.#patchBar([".ph-menu-bars"]);
+  };
 
   #onToggleStats(): void {
     this.#showStats = !this.#showStats;

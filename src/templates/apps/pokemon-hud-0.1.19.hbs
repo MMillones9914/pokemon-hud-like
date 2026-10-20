@@ -245,22 +245,6 @@
           <i class="fa-solid fa-chevron-down ph-min-icon--min"></i>
           <i class="fa-solid fa-chevron-up ph-min-icon--max"></i>
         </button>
-        {{#if ../isGM}}
-        <div class="ph-xp-gm" data-tooltip="{{localize 'pokemon-hud-like.hud.gmXp'}}">
-          <label>{{localize "pokemon-hud-like.hud.xp"}}</label>
-          <input type="number" min="0" step="100" value="{{this.xpTotal}}" data-action="set-xp" />
-          <span class="ph-xp-gm-max">/ {{this.xpLevelMax}}</span>
-          {{#if this.isMaxLevel}}
-          <span class="ph-xp-max-tag">{{localize "pokemon-hud-like.hud.maxLevel"}}</span>
-          {{/if}}
-          {{#if this.canLevelUp}}
-          <button class="ph-btn ph-btn--levelup" data-action="level-up"
-                  data-tooltip="{{localize 'pokemon-hud-like.hud.levelUp'}}">
-            <i class="fa-solid fa-arrow-up"></i>
-          </button>
-          {{/if}}
-        </div>
-        {{/if}}
         <div class="ph-portrait-img-wrap">
           <img class="ph-portrait-img" src="{{this.img}}" alt="{{this.actorName}}" />
           <button class="ph-dice-btn" type="button" data-action="toggle-stats"
@@ -308,10 +292,29 @@
                  style="--ph-pct:{{this.hp.pct}}"></div>
             <span class="ph-hp-label-top">{{localize "pokemon-hud-like.hud.hp"}} {{this.hp.current}} / {{this.hp.max}}</span>
           </div>
-          <div class="ph-xp-bar-top" data-tooltip="{{localize 'pokemon-hud-like.hud.xp'}}">
+          <div class="ph-xp-bar-top" data-tooltip="{{localize 'pokemon-hud-like.hud.xp'}}"
+               {{#if ../isGM}}data-action="toggle-xp-editor"{{/if}}>
             <div class="ph-xp-fill-top" style="--ph-pct:{{this.xp.pct}}"></div>
             <span class="ph-xp-label-top">{{localize "pokemon-hud-like.hud.xp"}} {{this.xp.current}} / {{this.xp.max}}</span>
           </div>
+          {{#if ../isGM}}
+          <div class="ph-xp-gm ph-xp-popup" data-xp-popup
+               data-tooltip="{{localize 'pokemon-hud-like.hud.gmXp'}}"
+               {{#unless this.xpEditorOpen}}hidden{{/unless}}>
+            <label>{{localize "pokemon-hud-like.hud.xp"}}</label>
+            <input type="number" min="0" step="100" value="{{this.xpTotal}}" data-action="set-xp" />
+            <span class="ph-xp-gm-max">/ {{this.xpLevelMax}}</span>
+            {{#if this.isMaxLevel}}
+            <span class="ph-xp-max-tag">{{localize "pokemon-hud-like.hud.maxLevel"}}</span>
+            {{/if}}
+            {{#if this.canLevelUp}}
+            <button class="ph-btn ph-btn--levelup" data-action="level-up"
+                    data-tooltip="{{localize 'pokemon-hud-like.hud.levelUp'}}">
+              <i class="fa-solid fa-arrow-up"></i>
+            </button>
+            {{/if}}
+          </div>
+          {{/if}}
         </div>
         <div class="ph-menu-sections">
 

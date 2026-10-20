@@ -216,6 +216,9 @@ export interface PokemonHudContext {
   canLevelUp: boolean;
 
   isMaxLevel: boolean;
+
+  /** GM-only: the XP editor popup is open (toggled by clicking the XP bar; state is keyed per actor). */
+  xpEditorOpen: boolean;
   level: string;
   types: TypeBadge[];
 

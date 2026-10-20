@@ -736,6 +736,7 @@ export function buildPokemonContext(actor: Actor): PokemonHudContext {
     xpLevelMax: xpNextMax(level) ?? xpMaxForLevel(level),
     canLevelUp: canLevelUp(xpTotal, level),
     isMaxLevel: level >= MAX_LEVEL,
+    xpEditorOpen: false,
     level: String(level),
     types: pokemonTypes(actor),
     habilidad: pf.habilidad.name
